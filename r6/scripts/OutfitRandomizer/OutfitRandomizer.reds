@@ -1,0 +1,485 @@
+// Outfit Randomizer
+// Builds a random outfit from the clothes in the Equipment-EX wardrobe, one piece
+// per slot, and wears it through Equipment-EX's outfit system. Equipped gear is
+// untouched. The wardrobe button, panel and slot locks are in OutfitRandomizerUI.reds.
+module OutfitRandomizer
+
+@if(ModuleExists("EquipmentEx"))
+import EquipmentEx.OutfitSystem
+
+// Player-facing options. With the Mod Settings mod installed they appear in its
+// in-game menu; without it the defaults below apply.
+public class ORSettings {
+  @runtimeProperty("ModSettings.mod", "Outfit Randomizer")
+  @runtimeProperty("ModSettings.category", "Layers")
+  @runtimeProperty("ModSettings.displayName", "Jacket chance (%)")
+  @runtimeProperty("ModSettings.description", "Chance to add a jacket or coat (the outer torso slot) over the torso layer that is always worn.")
+  @runtimeProperty("ModSettings.min", "0")
+  @runtimeProperty("ModSettings.max", "100")
+  @runtimeProperty("ModSettings.step", "5")
+  public let jacketChance: Int32 = 60;
+
+  @runtimeProperty("ModSettings.mod", "Outfit Randomizer")
+  @runtimeProperty("ModSettings.category", "Layers")
+  @runtimeProperty("ModSettings.displayName", "Extra layer chance (%)")
+  @runtimeProperty("ModSettings.description", "Chance, rolled for each remaining torso and legs slot, to add a second layer to the one that is always worn.")
+  @runtimeProperty("ModSettings.min", "0")
+  @runtimeProperty("ModSettings.max", "100")
+  @runtimeProperty("ModSettings.step", "5")
+  public let extraLayerChance: Int32 = 25;
+
+  @runtimeProperty("ModSettings.mod", "Outfit Randomizer")
+  @runtimeProperty("ModSettings.category", "Layers")
+  @runtimeProperty("ModSettings.displayName", "Headwear chance (%)")
+  @runtimeProperty("ModSettings.description", "Chance to add a hat or helmet.")
+  @runtimeProperty("ModSettings.min", "0")
+  @runtimeProperty("ModSettings.max", "100")
+  @runtimeProperty("ModSettings.step", "5")
+  public let headwearChance: Int32 = 35;
+
+  @runtimeProperty("ModSettings.mod", "Outfit Randomizer")
+  @runtimeProperty("ModSettings.category", "Layers")
+  @runtimeProperty("ModSettings.displayName", "Eyewear chance (%)")
+  @runtimeProperty("ModSettings.description", "Chance to add glasses or a visor.")
+  @runtimeProperty("ModSettings.min", "0")
+  @runtimeProperty("ModSettings.max", "100")
+  @runtimeProperty("ModSettings.step", "5")
+  public let eyewearChance: Int32 = 35;
+
+  @runtimeProperty("ModSettings.mod", "Outfit Randomizer")
+  @runtimeProperty("ModSettings.category", "Layers")
+  @runtimeProperty("ModSettings.displayName", "Face mask chance (%)")
+  @runtimeProperty("ModSettings.description", "Chance to add a face mask or balaclava.")
+  @runtimeProperty("ModSettings.min", "0")
+  @runtimeProperty("ModSettings.max", "100")
+  @runtimeProperty("ModSettings.step", "5")
+  public let maskChance: Int32 = 15;
+
+  @runtimeProperty("ModSettings.mod", "Outfit Randomizer")
+  @runtimeProperty("ModSettings.category", "Layers")
+  @runtimeProperty("ModSettings.displayName", "Accessory chance (%)")
+  @runtimeProperty("ModSettings.description", "Chance, rolled separately for each accessory slot (necklaces, earrings, wrists, gloves, belt, scarf), to fill it.")
+  @runtimeProperty("ModSettings.min", "0")
+  @runtimeProperty("ModSettings.max", "100")
+  @runtimeProperty("ModSettings.step", "5")
+  public let accessoryChance: Int32 = 45;
+
+  @runtimeProperty("ModSettings.mod", "Outfit Randomizer")
+  @runtimeProperty("ModSettings.category", "Layers")
+  @runtimeProperty("ModSettings.displayName", "Full-body chance (%)")
+  @runtimeProperty("ModSettings.description", "Chance to wear a jumpsuit or other one-piece. When one is worn the torso and legs are left empty, so this is off by default.")
+  @runtimeProperty("ModSettings.min", "0")
+  @runtimeProperty("ModSettings.max", "100")
+  @runtimeProperty("ModSettings.step", "5")
+  public let fullBodyChance: Int32 = 0;
+
+  @runtimeProperty("ModSettings.mod", "Outfit Randomizer")
+  @runtimeProperty("ModSettings.category", "Layers")
+  @runtimeProperty("ModSettings.displayName", "Other slots chance (%)")
+  @runtimeProperty("ModSettings.description", "Chance, rolled for each slot not covered above (shoulders, rings, nails and so on), to fill it; otherwise the slot is emptied. At 0 those slots are left exactly as they are.")
+  @runtimeProperty("ModSettings.min", "0")
+  @runtimeProperty("ModSettings.max", "100")
+  @runtimeProperty("ModSettings.step", "5")
+  public let otherChance: Int32 = 20;
+
+  @runtimeProperty("ModSettings.mod", "Outfit Randomizer")
+  @runtimeProperty("ModSettings.category", "Troubleshooting")
+  @runtimeProperty("ModSettings.displayName", "Debug logging")
+  @runtimeProperty("ModSettings.description", "Writes each randomized outfit to the Cyber Engine Tweaks game log.")
+  public let debugLogging: Bool = false;
+
+  public static func Get() -> ref<ORSettings> {
+    let system: ref<ORSystem> = ORSystem.Get(GetGameInstance());
+    if IsDefined(system) {
+      return system.GetSettings();
+    }
+    return new ORSettings();
+  }
+}
+
+// Owns the settings and the slot locks, and keeps the settings in step with the
+// Mod Settings menu.
+public class ORSystem extends ScriptableSystem {
+  private let m_settings: ref<ORSettings>;
+
+  // Outfit slots the randomizer must leave alone, saved with the game.
+  private persistent let m_lockedSlots: array<TweakDBID>;
+
+  // Pieces that are normally left out of the random pool, saved with the game.
+  private persistent let m_allowToggles: Bool;
+  private persistent let m_allowCyberware: Bool;
+
+  // The panel in the wardrobe screen that is open, or was open last.
+  private let m_panel: ref<IScriptable>;
+
+  public static func Get(game: GameInstance) -> ref<ORSystem> {
+    return GameInstance.GetScriptableSystemsContainer(game).Get(n"OutfitRandomizer.ORSystem") as ORSystem;
+  }
+
+  private func OnAttach() -> Void {
+    this.GetSettings();
+  }
+
+  private func OnDetach() -> Void {
+    this.m_panel = null;
+    if IsDefined(this.m_settings) {
+      OR_UnregisterSettings(this.m_settings);
+    }
+  }
+
+  public func GetSettings() -> ref<ORSettings> {
+    if !IsDefined(this.m_settings) {
+      this.m_settings = new ORSettings();
+      OR_RegisterSettings(this.m_settings);
+    }
+    return this.m_settings;
+  }
+
+  public func SetPanel(panel: ref<IScriptable>) -> Void {
+    this.m_panel = panel;
+  }
+
+  public func IsLocked(slotID: TweakDBID) -> Bool {
+    return ArrayContains(this.m_lockedSlots, slotID);
+  }
+
+  public func ToggleLock(slotID: TweakDBID) -> Void {
+    if ArrayContains(this.m_lockedSlots, slotID) {
+      ArrayRemove(this.m_lockedSlots, slotID);
+    } else {
+      ArrayPush(this.m_lockedSlots, slotID);
+    }
+  }
+
+  public func ClearLocks() -> Void {
+    ArrayClear(this.m_lockedSlots);
+  }
+
+  public func LockCount() -> Int32 {
+    return ArraySize(this.m_lockedSlots);
+  }
+
+  public func AllowsToggles() -> Bool {
+    return this.m_allowToggles;
+  }
+
+  public func AllowsCyberware() -> Bool {
+    return this.m_allowCyberware;
+  }
+
+  public func SetAllowToggles(allow: Bool) -> Void {
+    this.m_allowToggles = allow;
+  }
+
+  public func SetAllowCyberware(allow: Bool) -> Void {
+    this.m_allowCyberware = allow;
+  }
+
+  public func Log(message: String) -> Void {
+    if this.GetSettings().debugLogging {
+      FTLog("[OutfitRandomizer] " + message);
+    }
+  }
+}
+
+@if(ModuleExists("ModSettingsModule"))
+func OR_RegisterSettings(settings: ref<ORSettings>) -> Void {
+  ModSettings.RegisterListenerToClass(settings);
+}
+
+@if(!ModuleExists("ModSettingsModule"))
+func OR_RegisterSettings(settings: ref<ORSettings>) -> Void {}
+
+@if(ModuleExists("ModSettingsModule"))
+func OR_UnregisterSettings(settings: ref<ORSettings>) -> Void {
+  ModSettings.UnregisterListenerToClass(settings);
+}
+
+@if(!ModuleExists("ModSettingsModule"))
+func OR_UnregisterSettings(settings: ref<ORSettings>) -> Void {}
+
+// Text from the mod's localization (OutfitRandomizerLocalization.reds), in the
+// language the game is set to.
+func OR_Text(key: String) -> String {
+  let text: String = GetLocalizedTextByKey(StringToName(key));
+  return Equals(text, "") || Equals(text, key) ? key : text;
+}
+
+// Everything below needs Equipment-EX. Without it the mod still compiles and
+// simply does nothing.
+
+@if(ModuleExists("EquipmentEx"))
+func OR_Roll(chance: Int32) -> Bool {
+  return RandRange(0, 100) < chance;
+}
+
+// Toggles and adjusters switch parts of other pieces on and off.
+@if(ModuleExists("EquipmentEx"))
+func OR_IsToggle(name: String, path: String) -> Bool {
+  return StrContains(name, "toggle") || StrContains(path, "toggle") || StrContains(name, "adjust") || StrContains(path, "adjust");
+}
+
+// Cyberware shown as clothing: everything from the KiasuBurger cyberware mods (their
+// item IDs start with kiasu_burger) and anything else that says cyberware.
+@if(ModuleExists("EquipmentEx"))
+func OR_IsCyberware(name: String, path: String) -> Bool {
+  return StrContains(path, "kiasu_burger") || StrContains(path, "kiasuburger") || StrContains(path, "cyberware") || StrContains(name, "cyberware") || StrContains(path, "raid_psy");
+}
+
+// Whether a piece is left out of the random pool. Toggles and cyberware are kept out
+// unless the player has allowed them in the panel.
+@if(ModuleExists("EquipmentEx"))
+func OR_IsExcluded(system: ref<ORSystem>, outfitSystem: ref<OutfitSystem>, itemID: ItemID) -> Bool {
+  let name: String;
+  let path: String;
+  if system.AllowsToggles() && system.AllowsCyberware() {
+    return false;
+  }
+  name = UTF8StrLower(outfitSystem.GetItemName(itemID));
+  path = UTF8StrLower(TDBID.ToStringDEBUG(ItemID.GetTDBID(itemID)));
+  return (!system.AllowsToggles() && OR_IsToggle(name, path)) || (!system.AllowsCyberware() && OR_IsCyberware(name, path));
+}
+
+// Whether a slot can be rerolled: not locked, and the pool has a piece for it.
+@if(ModuleExists("EquipmentEx"))
+func OR_IsOpen(system: ref<ORSystem>, poolSlots: script_ref<array<TweakDBID>>, slotID: TweakDBID) -> Bool {
+  return !system.IsLocked(slotID) && ArrayContains(Deref(poolSlots), slotID);
+}
+
+// A random piece from the pool for the given slot, as an index, or -1 if there is
+// none. Avoids the piece already worn when there is another to choose.
+@if(ModuleExists("EquipmentEx"))
+func OR_Pick(outfitSystem: ref<OutfitSystem>, poolItems: script_ref<array<ItemID>>, poolSlots: script_ref<array<TweakDBID>>, slotID: TweakDBID) -> Int32 {
+  let candidates: array<Int32>;
+  let fresh: array<Int32>;
+  let i: Int32 = 0;
+  while i < ArraySize(Deref(poolItems)) {
+    if Deref(poolSlots)[i] == slotID {
+      ArrayPush(candidates, i);
+      if !outfitSystem.IsEquipped(Deref(poolItems)[i]) {
+        ArrayPush(fresh, i);
+      }
+    }
+    i += 1;
+  }
+  if ArraySize(fresh) > 0 {
+    return fresh[RandRange(0, ArraySize(fresh))];
+  }
+  if ArraySize(candidates) > 0 {
+    return candidates[RandRange(0, ArraySize(candidates))];
+  }
+  return -1;
+}
+
+// One slot, filled or emptied on a roll.
+@if(ModuleExists("EquipmentEx"))
+func OR_PlanSlot(system: ref<ORSystem>, poolSlots: script_ref<array<TweakDBID>>, slotID: TweakDBID, chance: Int32, out fills: array<TweakDBID>, out clears: array<TweakDBID>) -> Void {
+  if !OR_IsOpen(system, poolSlots, slotID) {
+    return;
+  }
+  if OR_Roll(chance) {
+    ArrayPush(fills, slotID);
+  } else {
+    ArrayPush(clears, slotID);
+  }
+}
+
+// Slots that share one roll: on a success one of them is filled, and the rest are
+// emptied either way.
+@if(ModuleExists("EquipmentEx"))
+func OR_PlanOneOf(system: ref<ORSystem>, poolSlots: script_ref<array<TweakDBID>>, slots: array<TweakDBID>, chance: Int32, out fills: array<TweakDBID>, out clears: array<TweakDBID>) -> Void {
+  let open: array<TweakDBID>;
+  let chosen: TweakDBID;
+  let i: Int32 = 0;
+  while i < ArraySize(slots) {
+    if OR_IsOpen(system, poolSlots, slots[i]) {
+      ArrayPush(open, slots[i]);
+    }
+    i += 1;
+  }
+  if ArraySize(open) == 0 {
+    return;
+  }
+  if OR_Roll(chance) {
+    chosen = open[RandRange(0, ArraySize(open))];
+    ArrayPush(fills, chosen);
+  }
+  i = 0;
+  while i < ArraySize(open) {
+    if open[i] != chosen {
+      ArrayPush(clears, open[i]);
+    }
+    i += 1;
+  }
+}
+
+// Whether any slot in the list is in the other list.
+@if(ModuleExists("EquipmentEx"))
+func OR_AnyOf(slots: array<TweakDBID>, among: array<TweakDBID>) -> Bool {
+  let i: Int32 = 0;
+  while i < ArraySize(slots) {
+    if ArrayContains(among, slots[i]) {
+      return true;
+    }
+    i += 1;
+  }
+  return false;
+}
+
+// Empties every slot in the set that is not locked.
+@if(ModuleExists("EquipmentEx"))
+func OR_PlanClear(system: ref<ORSystem>, slots: array<TweakDBID>, out clears: array<TweakDBID>) -> Void {
+  let i: Int32 = 0;
+  while i < ArraySize(slots) {
+    if !system.IsLocked(slots[i]) {
+      ArrayPush(clears, slots[i]);
+    }
+    i += 1;
+  }
+}
+
+// Whether a locked slot in the set is worn.
+@if(ModuleExists("EquipmentEx"))
+func OR_LockedAndWorn(system: ref<ORSystem>, outfitSystem: ref<OutfitSystem>, slots: array<TweakDBID>) -> Bool {
+  let i: Int32 = 0;
+  while i < ArraySize(slots) {
+    if system.IsLocked(slots[i]) && outfitSystem.IsOccupied(slots[i]) {
+      return true;
+    }
+    i += 1;
+  }
+  return false;
+}
+
+// A set of layered slots (torso or legs) that must never end up empty. Unless a
+// locked slot in the set is already worn, one slot is always filled, from mainSlots
+// when possible. The outer slot and the rest are then added on their own chances.
+@if(ModuleExists("EquipmentEx"))
+func OR_PlanLayers(system: ref<ORSystem>, outfitSystem: ref<OutfitSystem>, poolSlots: script_ref<array<TweakDBID>>, slots: array<TweakDBID>, mainSlots: array<TweakDBID>, outerSlot: TweakDBID, outerChance: Int32, extraChance: Int32, out fills: array<TweakDBID>, out clears: array<TweakDBID>) -> Void {
+  let open: array<TweakDBID>;
+  let mains: array<TweakDBID>;
+  let chosen: array<TweakDBID>;
+  let covered: Bool = false;
+  let i: Int32 = 0;
+  while i < ArraySize(slots) {
+    if system.IsLocked(slots[i]) {
+      if outfitSystem.IsOccupied(slots[i]) {
+        covered = true;
+      }
+    } else {
+      if ArrayContains(Deref(poolSlots), slots[i]) {
+        ArrayPush(open, slots[i]);
+        if ArrayContains(mainSlots, slots[i]) {
+          ArrayPush(mains, slots[i]);
+        }
+      }
+    }
+    i += 1;
+  }
+  if ArraySize(open) == 0 {
+    return;
+  }
+  if !covered {
+    if ArraySize(mains) > 0 {
+      ArrayPush(chosen, mains[RandRange(0, ArraySize(mains))]);
+    } else {
+      ArrayPush(chosen, open[RandRange(0, ArraySize(open))]);
+    }
+  }
+  i = 0;
+  while i < ArraySize(open) {
+    if !ArrayContains(chosen, open[i]) && OR_Roll(open[i] == outerSlot ? outerChance : extraChance) {
+      ArrayPush(chosen, open[i]);
+    }
+    if ArrayContains(chosen, open[i]) {
+      ArrayPush(fills, open[i]);
+    } else {
+      ArrayPush(clears, open[i]);
+    }
+    i += 1;
+  }
+}
+
+// Rerolls every unlocked slot from the given pool of pieces (item and the outfit
+// slot it goes in, as parallel arrays). A slot with nothing in the pool is left as
+// it is. Returns how many pieces were put on, or -1 if outfits can't be changed.
+@if(ModuleExists("EquipmentEx"))
+func OR_Randomize(game: GameInstance, poolItems: array<ItemID>, poolSlots: array<TweakDBID>) -> Int32 {
+  let system: ref<ORSystem> = ORSystem.Get(game);
+  let settings: ref<ORSettings> = system.GetSettings();
+  let outfitSystem: ref<OutfitSystem> = OutfitSystem.GetInstance(game);
+  let torsoSlots: array<TweakDBID> = [t"OutfitSlots.TorsoUnder", t"OutfitSlots.TorsoInner", t"OutfitSlots.TorsoMiddle", t"OutfitSlots.TorsoOuter"];
+  let legsSlots: array<TweakDBID> = [t"OutfitSlots.LegsInner", t"OutfitSlots.LegsMiddle", t"OutfitSlots.LegsOuter"];
+  let bodySlots: array<TweakDBID> = [t"OutfitSlots.BodyUnder", t"OutfitSlots.BodyInner", t"OutfitSlots.BodyMiddle", t"OutfitSlots.BodyOuter"];
+  let maskSlots: array<TweakDBID> = [t"OutfitSlots.Mask", t"OutfitSlots.Balaclava"];
+  let accessorySlots: array<TweakDBID> = [
+    t"OutfitSlots.Neckwear", t"OutfitSlots.NecklaceTight", t"OutfitSlots.NecklaceShort", t"OutfitSlots.NecklaceLong",
+    t"OutfitSlots.EarLeft", t"OutfitSlots.EarRight", t"OutfitSlots.WristLeft", t"OutfitSlots.WristRight",
+    t"OutfitSlots.Hands", t"OutfitSlots.Waist"
+  ];
+  let singleSlots: array<TweakDBID> = [t"OutfitSlots.Feet", t"OutfitSlots.Head", t"OutfitSlots.Glasses"];
+  let fills: array<TweakDBID>;
+  let clears: array<TweakDBID>;
+  let allSlots: array<TweakDBID>;
+  let summary: String;
+  let pick: Int32;
+  let count: Int32 = 0;
+  let i: Int32;
+  if !IsDefined(outfitSystem) || outfitSystem.IsBlocked() {
+    system.Log("skipped: outfit changes are blocked");
+    return -1;
+  }
+
+  // A one-piece covers the torso and legs, so when one is worn (picked now, or locked
+  // and kept) the layers under and over it are emptied instead of piled on top.
+  OR_PlanOneOf(system, poolSlots, bodySlots, settings.fullBodyChance, fills, clears);
+  if OR_AnyOf(fills, bodySlots) || OR_LockedAndWorn(system, outfitSystem, bodySlots) {
+    OR_PlanClear(system, torsoSlots, clears);
+    OR_PlanClear(system, legsSlots, clears);
+  } else {
+    OR_PlanLayers(system, outfitSystem, poolSlots, torsoSlots, [t"OutfitSlots.TorsoInner", t"OutfitSlots.TorsoMiddle"], t"OutfitSlots.TorsoOuter", settings.jacketChance, settings.extraLayerChance, fills, clears);
+    OR_PlanLayers(system, outfitSystem, poolSlots, legsSlots, [t"OutfitSlots.LegsMiddle", t"OutfitSlots.LegsOuter"], TDBID.None(), 0, settings.extraLayerChance, fills, clears);
+  }
+  OR_PlanSlot(system, poolSlots, t"OutfitSlots.Feet", 100, fills, clears);
+  OR_PlanSlot(system, poolSlots, t"OutfitSlots.Head", settings.headwearChance, fills, clears);
+  OR_PlanSlot(system, poolSlots, t"OutfitSlots.Glasses", settings.eyewearChance, fills, clears);
+  OR_PlanOneOf(system, poolSlots, maskSlots, settings.maskChance, fills, clears);
+  i = 0;
+  while i < ArraySize(accessorySlots) {
+    OR_PlanSlot(system, poolSlots, accessorySlots[i], settings.accessoryChance, fills, clears);
+    i += 1;
+  }
+  // Every other slot is only touched when the player has asked for it.
+  if settings.otherChance > 0 {
+    allSlots = outfitSystem.GetOutfitSlots();
+    i = 0;
+    while i < ArraySize(allSlots) {
+      if !ArrayContains(torsoSlots, allSlots[i]) && !ArrayContains(legsSlots, allSlots[i]) && !ArrayContains(bodySlots, allSlots[i])
+        && !ArrayContains(maskSlots, allSlots[i]) && !ArrayContains(accessorySlots, allSlots[i]) && !ArrayContains(singleSlots, allSlots[i]) {
+        OR_PlanSlot(system, poolSlots, allSlots[i], settings.otherChance, fills, clears);
+      }
+      i += 1;
+    }
+  }
+
+  // Put the new pieces on first and clear slots after, so the player is never
+  // shown undressed in between.
+  i = 0;
+  while i < ArraySize(fills) {
+    pick = OR_Pick(outfitSystem, poolItems, poolSlots, fills[i]);
+    if pick >= 0 && outfitSystem.EquipItem(poolItems[pick]) {
+      count += 1;
+      summary += outfitSystem.GetSlotName(fills[i]) + "=" + outfitSystem.GetItemName(poolItems[pick]) + "; ";
+    }
+    i += 1;
+  }
+  i = 0;
+  while i < ArraySize(clears) {
+    if outfitSystem.IsOccupied(clears[i]) {
+      outfitSystem.UnequipSlot(clears[i]);
+    }
+    i += 1;
+  }
+  system.Log("pool=" + IntToString(ArraySize(poolItems)) + " outfit: " + summary);
+  return count;
+}
