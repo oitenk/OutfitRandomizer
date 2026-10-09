@@ -22,7 +22,7 @@ public class ORSettings {
   @runtimeProperty("ModSettings.mod", "Outfit Randomizer")
   @runtimeProperty("ModSettings.category", "Layers")
   @runtimeProperty("ModSettings.displayName", "Extra layer chance (%)")
-  @runtimeProperty("ModSettings.description", "Chance, rolled for each remaining torso and legs slot, to add a second layer to the one that is always worn.")
+  @runtimeProperty("ModSettings.description", "Chance, rolled for each remaining torso and legs slot, to add another layer to the one that is always worn. Pieces that would overlap what is already worn, going by their names, are skipped.")
   @runtimeProperty("ModSettings.min", "0")
   @runtimeProperty("ModSettings.max", "100")
   @runtimeProperty("ModSettings.step", "5")
@@ -247,26 +247,43 @@ func OR_IsOpen(system: ref<ORSystem>, poolSlots: script_ref<array<TweakDBID>>, s
 }
 
 // A random piece from the pool for the given slot, as an index, or -1 if there is
-// none. Avoids the piece already worn when there is another to choose.
+// none that fits. Pieces that overlap what is already chosen (the cover codes in
+// accepted) are skipped, and the piece already worn is only used when nothing else
+// fits.
 @if(ModuleExists("EquipmentEx"))
-func OR_Pick(outfitSystem: ref<OutfitSystem>, poolItems: script_ref<array<ItemID>>, poolSlots: script_ref<array<TweakDBID>>, slotID: TweakDBID) -> Int32 {
-  let candidates: array<Int32>;
+func OR_Pick(outfitSystem: ref<OutfitSystem>, poolItems: script_ref<array<ItemID>>, poolSlots: script_ref<array<TweakDBID>>, slotID: TweakDBID, accepted: array<Int32>) -> Int32 {
   let fresh: array<Int32>;
+  let worn: array<Int32>;
+  let list: array<Int32>;
+  let attempts: Int32;
+  let at: Int32;
+  let index: Int32;
+  let round: Int32 = 0;
   let i: Int32 = 0;
   while i < ArraySize(Deref(poolItems)) {
     if Deref(poolSlots)[i] == slotID {
-      ArrayPush(candidates, i);
-      if !outfitSystem.IsEquipped(Deref(poolItems)[i]) {
+      if outfitSystem.IsEquipped(Deref(poolItems)[i]) {
+        ArrayPush(worn, i);
+      } else {
         ArrayPush(fresh, i);
       }
     }
     i += 1;
   }
-  if ArraySize(fresh) > 0 {
-    return fresh[RandRange(0, ArraySize(fresh))];
-  }
-  if ArraySize(candidates) > 0 {
-    return candidates[RandRange(0, ArraySize(candidates))];
+  while round < 2 {
+    list = round == 0 ? fresh : worn;
+    // Looking at a piece means reading its name, so there is a limit.
+    attempts = 0;
+    while ArraySize(list) > 0 && attempts < 60 {
+      at = RandRange(0, ArraySize(list));
+      index = list[at];
+      ArrayErase(list, at);
+      if !OR_Conflicts(OR_CoverOf(outfitSystem, Deref(poolItems)[index], slotID), accepted) {
+        return index;
+      }
+      attempts += 1;
+    }
+    round += 1;
   }
   return -1;
 }
@@ -379,22 +396,23 @@ func OR_PlanLayers(system: ref<ORSystem>, outfitSystem: ref<OutfitSystem>, poolS
   if ArraySize(open) == 0 {
     return;
   }
+  // The layer that is always worn goes first, so it is picked before the optional ones.
   if !covered {
     if ArraySize(mains) > 0 {
       ArrayPush(chosen, mains[RandRange(0, ArraySize(mains))]);
     } else {
       ArrayPush(chosen, open[RandRange(0, ArraySize(open))]);
     }
+    ArrayPush(fills, chosen[0]);
   }
   i = 0;
   while i < ArraySize(open) {
-    if !ArrayContains(chosen, open[i]) && OR_Roll(open[i] == outerSlot ? outerChance : extraChance) {
-      ArrayPush(chosen, open[i]);
-    }
-    if ArrayContains(chosen, open[i]) {
-      ArrayPush(fills, open[i]);
-    } else {
-      ArrayPush(clears, open[i]);
+    if !ArrayContains(chosen, open[i]) {
+      if OR_Roll(open[i] == outerSlot ? outerChance : extraChance) {
+        ArrayPush(fills, open[i]);
+      } else {
+        ArrayPush(clears, open[i]);
+      }
     }
     i += 1;
   }
@@ -421,6 +439,14 @@ func OR_Randomize(game: GameInstance, poolItems: array<ItemID>, poolSlots: array
   let fills: array<TweakDBID>;
   let clears: array<TweakDBID>;
   let allSlots: array<TweakDBID>;
+  let usedSlots: array<TweakDBID>;
+  let accepted: array<Int32>;
+  let picks: array<Int32>;
+  let pickSlots: array<TweakDBID>;
+  let transactionSystem: ref<TransactionSystem> = GameInstance.GetTransactionSystem(game);
+  let player: ref<GameObject> = GetPlayer(game);
+  let worn: ref<ItemObject>;
+  let cover: ORCover;
   let summary: String;
   let pick: Int32;
   let count: Int32 = 0;
@@ -462,14 +488,49 @@ func OR_Randomize(game: GameInstance, poolItems: array<ItemID>, poolSlots: array
     }
   }
 
+  // What stays as it is (locked slots and slots left alone) already covers part of
+  // the body, so new pieces are chosen around it.
+  usedSlots = outfitSystem.GetUsedSlots();
+  i = 0;
+  while i < ArraySize(usedSlots) {
+    if !ArrayContains(fills, usedSlots[i]) && !ArrayContains(clears, usedSlots[i]) {
+      worn = transactionSystem.GetItemInSlot(player, usedSlots[i]);
+      if IsDefined(worn) {
+        cover = OR_CoverOf(outfitSystem, worn.GetItemID(), usedSlots[i]);
+        if NotEquals(cover, ORCover.None) {
+          ArrayPush(accepted, EnumInt(cover));
+        }
+      }
+    }
+    i += 1;
+  }
+
+  // Choose a piece for each slot, in order, skipping any that overlap the ones chosen
+  // so far. A slot with no piece that fits is emptied.
+  i = 0;
+  while i < ArraySize(fills) {
+    pick = OR_Pick(outfitSystem, poolItems, poolSlots, fills[i], accepted);
+    if pick >= 0 {
+      cover = OR_CoverOf(outfitSystem, poolItems[pick], fills[i]);
+      if NotEquals(cover, ORCover.None) {
+        ArrayPush(accepted, EnumInt(cover));
+      }
+      ArrayPush(picks, pick);
+      ArrayPush(pickSlots, fills[i]);
+    } else {
+      ArrayPush(clears, fills[i]);
+      system.Log("no piece fits slot " + outfitSystem.GetSlotName(fills[i]));
+    }
+    i += 1;
+  }
+
   // Put the new pieces on first and clear slots after, so the player is never
   // shown undressed in between.
   i = 0;
-  while i < ArraySize(fills) {
-    pick = OR_Pick(outfitSystem, poolItems, poolSlots, fills[i]);
-    if pick >= 0 && outfitSystem.EquipItem(poolItems[pick]) {
+  while i < ArraySize(picks) {
+    if outfitSystem.EquipItem(poolItems[picks[i]]) {
       count += 1;
-      summary += outfitSystem.GetSlotName(fills[i]) + "=" + outfitSystem.GetItemName(poolItems[pick]) + "; ";
+      summary += outfitSystem.GetSlotName(pickSlots[i]) + "=" + outfitSystem.GetItemName(poolItems[picks[i]]) + " [" + ToString(OR_CoverOf(outfitSystem, poolItems[picks[i]], pickSlots[i])) + "]; ";
     }
     i += 1;
   }

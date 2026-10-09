@@ -13,7 +13,7 @@ Open the Equipment-EX wardrobe and press the die button in the row of small butt
 | Footwear | Always |
 | Headwear, eyewear, face mask | By chance |
 | Accessories | By chance, each slot on its own |
-| Full-body | Off by default. When one is worn, picked or locked, the torso and legs are left empty so it is not piled under other layers. |
+| Full-body | Off by default. See below for how it combines with the other layers. |
 | Every other slot | By chance, each slot on its own |
 
 A slot with nothing to pick from is left as it is.
@@ -26,6 +26,12 @@ Two switches in the panel, both off by default, decide what may be picked:
 - **Allow cyberware** - cyberware shown as clothing: everything from the KiasuBurger cyberware mods (their item IDs start with `kiasu_burger`) and any piece with "cyberware" in its name or ID.
 
 While a switch is off, those pieces are left out of the random pool. The switches are saved with the game and do not affect pieces you equip by hand.
+
+### Avoiding overlap
+
+Pieces are checked by name and item ID, not by slot, because modded clothing is often filed under whatever slot its author or the player chose. A dress in a torso slot is still a dress. From the words in the name and ID, each piece in the torso, legs and full-body slots is placed in one of these layers: under (bras and the like), top, jacket, bottom, under-legs (leggings, tights, underwear) or full (dresses, jumpsuits, bodysuits, or a name that lists a top and a bottom). When the name says nothing, the slot decides.
+
+The randomizer keeps to one piece per layer, and a full piece goes with nothing but a jacket. A one-piece from one of the body slots is worn alone, with the torso and legs left empty. Pieces already worn in locked slots are counted. If no piece fits a slot it is left empty.
 
 ### Locking slots
 
