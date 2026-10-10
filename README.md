@@ -62,7 +62,7 @@ Point at a slot's row in the wardrobe list and press **R** (the reload key) to l
 
 ### What it picks from
 
-Pieces come from the item source the wardrobe is set to, narrowed by its search text. If you like a result, save it as an outfit in the wardrobe as usual.
+Pieces come from the item source the wardrobe is set to, narrowed by its search box. If you like a result, save it as an outfit in the wardrobe as usual.
 
 With [WEAVE](https://www.nexusmods.com/cyberpunk2077/mods/28273) installed, the randomizer also follows the wardrobe's **Slot** and **Tag** filters. Set the tag filter to a style, faction, wealth tier, reaction or custom tag and the outfit is built only from pieces that match, the same way the list filters them. The category filter and the All / Equipped tabs are not followed.
 
@@ -110,6 +110,7 @@ With Mod Settings installed, under **Outfit Randomizer**:
 - Built and tested on game version 2.3x with Equipment-EX 1.2.9, Codeware 1.20.5 and TweakXL 1.11.4.
 - Street Sense's readout uses its documented score functions, plus a refresh call and a faction-name lookup that are not in its documentation. Both are only used when Street Sense is installed.
 - The Category filter and the All / Equipped tabs of WEAVE's wardrobe are not followed when picking.
+- None of WEAVE, Street Sense or Dynamic Wardrobe is needed. Without WEAVE the randomizer uses the stock Equipment-EX wardrobe: its search box applies, but the slot and tag filters and the tag editor (and so the OMIT tag) do not exist. The district and style preferences still work on the tags items already carry, which vanilla clothing has many of, but modded clothing only has them if something has tagged it. Without Street Sense there is no score readout, and Dynamic Wardrobe only matters to the names suggested when saving.
 
 ## Credits
 

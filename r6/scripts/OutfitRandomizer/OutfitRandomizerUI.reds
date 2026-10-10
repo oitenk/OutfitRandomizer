@@ -449,12 +449,17 @@ public class ORPanel {
   // step with the lock. Returns false if the widget is not a slot row.
   private func MarkHeader(header: wref<inkCompoundWidget>) -> Bool {
     let row: wref<inkCompoundWidget> = this.HeaderRow(header);
+    // WEAVE lays a slot out on one line, so the label goes in that line. The stock
+    // wardrobe stacks the name over two more lines, so there it sits at the right edge
+    // of the row instead, left of the fold arrow.
+    let inline: Bool = IsDefined(header.GetWidget(n"vstack/row"));
+    let holder: wref<inkCompoundWidget> = inline ? row : header;
     let marker: ref<inkText>;
     let slotID: TweakDBID;
     if !IsDefined(row) {
       return false;
     }
-    marker = row.GetWidget(n"orLock") as inkText;
+    marker = holder.GetWidget(n"orLock") as inkText;
     if !IsDefined(marker) {
       marker = new inkText();
       marker.SetName(n"orLock");
@@ -463,11 +468,17 @@ public class ORPanel {
       marker.SetTintColor(new HDRColor(1.0, 0.78, 0.2, 1.0));
       marker.SetFitToContent(true);
       marker.SetVAlign(inkEVerticalAlign.Center);
-      marker.SetMargin(inkMargin(0.0, 0.0, 14.0, 0.0));
       marker.SetText(UTF8StrUpper(OR_Text("OutfitRandomizer-Locked")));
-      marker.Reparent(row);
-      // After the fold arrow, where the row has one.
-      row.ReorderChild(marker, IsDefined(row.GetWidget(n"arrow")) ? 1 : 0);
+      marker.Reparent(holder);
+      if inline {
+        marker.SetMargin(inkMargin(0.0, 0.0, 14.0, 0.0));
+        // After the fold arrow, where the row has one.
+        row.ReorderChild(marker, IsDefined(row.GetWidget(n"arrow")) ? 1 : 0);
+      } else {
+        marker.SetAnchor(inkEAnchor.CenterRight);
+        marker.SetAnchorPoint(Vector2(1.0, 0.5));
+        marker.SetMargin(inkMargin(0.0, 0.0, 110.0, 0.0));
+      }
       header.RegisterToCallback(n"OnRelease", this, n"OnHeaderRelease");
       header.RegisterToCallback(n"OnEnter", this, n"OnHeaderEnter");
       header.RegisterToCallback(n"OnLeave", this, n"OnHeaderLeave");
@@ -791,11 +802,17 @@ public class ORPanel {
 func OR_CollectPool(screen: ref<WardrobeScreenController>, out poolItems: array<ItemID>, out poolSlots: array<TweakDBID>) -> Void {
   let items: array<InventoryItemData> = screen.m_inventoryHelper.GetAvailableItems();
   let system: ref<ORSystem> = ORSystem.Get(GetGameInstance());
+  let query: String;
   let slotID: TweakDBID;
   let i: Int32 = 0;
+  if IsDefined(screen.m_searchInput) {
+    query = UTF8StrLower(screen.m_searchInput.GetText());
+  }
   while i < ArraySize(items) {
     slotID = screen.m_outfitSystem.GetItemSlot(items[i].ID);
-    if TDBID.IsValid(slotID) && !OR_IsExcluded(system, screen.m_outfitSystem, items[i].ID) {
+    if TDBID.IsValid(slotID)
+      && !OR_IsExcluded(system, screen.m_outfitSystem, items[i].ID)
+      && (Equals(query, "") || StrContains(UTF8StrLower(screen.m_outfitSystem.GetItemName(items[i].ID)), query)) {
       ArrayPush(poolItems, items[i].ID);
       ArrayPush(poolSlots, slotID);
     }
