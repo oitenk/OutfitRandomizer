@@ -312,10 +312,25 @@ func OR_Roll(chance: Int32) -> Bool {
   return RandRange(0, 100) < chance;
 }
 
+// The Zenitex clothing packs (item IDs starting items.scorpion_) name their clothes
+// with a quality at the end, such as _legendary. The cosmetic parts that go with
+// them, such as lenses, LEDs, visor glass and goggles, have none, and the older ones
+// were never named toggle, so they are told apart by that.
+@if(ModuleExists("EquipmentEx"))
+func OR_IsZenitexPart(path: String) -> Bool {
+  let qualities: array<String> = ["common", "uncommon", "rare", "epic", "legendary", "iconic", "legendaryplusplus"];
+  let tokens: array<String>;
+  if !StrBeginsWith(path, "items.scorpion_") {
+    return false;
+  }
+  tokens = OR_Tokens(path);
+  return ArraySize(tokens) > 0 && !ArrayContains(qualities, tokens[ArraySize(tokens) - 1]);
+}
+
 // Toggles and adjusters switch parts of other pieces on and off.
 @if(ModuleExists("EquipmentEx"))
 func OR_IsToggle(name: String, path: String) -> Bool {
-  return StrContains(name, "toggle") || StrContains(path, "toggle") || StrContains(name, "adjust") || StrContains(path, "adjust");
+  return StrContains(name, "toggle") || StrContains(path, "toggle") || StrContains(name, "adjust") || StrContains(path, "adjust") || OR_IsZenitexPart(path);
 }
 
 // Cyberware shown as clothing: everything from the KiasuBurger cyberware mods (their

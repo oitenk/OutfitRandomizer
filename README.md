@@ -44,7 +44,7 @@ Tag any piece **OMIT** and the randomizer never picks it. Nothing is locked: if 
 
 Three switches in the panel, all off by default, decide what may be picked:
 
-- **Allow toggles** - toggles and adjusters (pieces with "toggle" or "adjust" in their name or ID).
+- **Allow toggles** - toggles and adjusters (pieces with "toggle" or "adjust" in their name or ID), and the cosmetic parts of the Zenitex clothing packs, such as lenses, LEDs, visor glass and goggles, which are not named toggle.
 - **Allow cyberware** - cyberware shown as clothing: everything from the KiasuBurger cyberware mods (their item IDs start with `kiasu_burger`) and any piece with "cyberware" in its name or ID.
 - **Allow add-ons** - things worn that are not clothes: weapon and holster add-ons, decals, and cosmetics such as lip colour and nails.
 

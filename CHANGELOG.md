@@ -8,6 +8,7 @@
 - Locks are set per slot on the wardrobe list's own rows (R), with a LOCKED label.
 - Overlap is avoided by name: pieces are placed in a layer (under, top, jacket, bottom, under-legs or full) from the words in their name and item ID, and the randomizer keeps to one piece per layer, with only a jacket over a full piece. The slot is only used when the name says nothing.
 - All text goes through Codeware's localization, so it can be translated.
+- The cosmetic parts of the Zenitex clothing packs (lenses, LEDs, visor glass, goggles) count as toggles.
 - Three switches in the panel, off by default: Allow toggles, Allow cyberware and Allow add-ons. Cyberware covers the KiasuBurger cyberware mods and anything with "cyberware" in its name or ID; add-ons covers weapon and holster add-ons, decals and cosmetics. A slot worn with something that is not allowed is locked automatically, once per piece, and can be unlocked to change it.
 - A DISTRICT pop-out, in the style of WEAVE's tag pop-out, to pick districts to dress for (or "where I am"), or a kind of place: Corpo, Street, Wild or Club, each preferring WEAVE's style tags. Each district prefers pieces with the gang and wealth tags of the gangs most present there, with at least four from them when possible and a Mod Settings strength for the rest.
 - SAVE OUTFIT opens the wardrobe's save pop-up with a name filled in, using the words of the chosen kinds of place and districts that Dynamic Wardrobe matches on, which can be changed before saving.
