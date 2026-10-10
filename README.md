@@ -38,7 +38,7 @@ Dynamic Wardrobe is not needed. Outfits swap on their own when it is installed a
 
 ### Leaving pieces out
 
-Tag any piece **OMIT** and the randomizer never picks it. This is for pieces that only look right with certain other pieces, such as modular helmet parts, that you do not want turning up in random outfits. Nothing is locked: if you are wearing one, a randomize can still replace it, so lock the slot yourself (**R**) to keep it. With [WEAVE](https://www.nexusmods.com/cyberpunk2077/mods/28273), point at the piece in the wardrobe list, press **T** to open the tag editor and add a custom tag called OMIT. To tag several at once, mark them with **Z** first. The tag is not case sensitive, and a mod that gives its items an OMIT tag works the same way.
+Tag any piece **OMIT** and the randomizer never picks it. Nothing is locked: if you are wearing one, a randomize can still replace it, so lock the slot yourself (**R**) to keep it. With [WEAVE](https://www.nexusmods.com/cyberpunk2077/mods/28273), point at the piece in the wardrobe list, press **T** to open the tag editor and add a custom tag called OMIT. To tag several at once, mark them with **Z** first. The tag is not case sensitive, and a mod that gives its items an OMIT tag works the same way.
 
 ### Toggles, cyberware and add-ons
 
