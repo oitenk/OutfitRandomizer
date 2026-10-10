@@ -32,11 +32,12 @@ public class ORLanguageEnglish extends ModLocalizationPackage {
   protected func DefineTexts() -> Void {
     // Wardrobe button panel
     this.Text("OutfitRandomizer-Title", "Outfit Randomizer");
-    this.Text("OutfitRandomizer-Help", "Picks from your wardrobe, narrowed by the search text and the slot and tag filters. To keep a slot as it is, point at its row in the list and press R; locked slots are marked LOCKED.");
+    this.Text("OutfitRandomizer-Help", "Picks from your wardrobe, narrowed by the search text and the slot and tag filters. To keep a slot as it is, point at its row in the list and press R; locked slots are marked LOCKED. Slots worn with toggles, cyberware or add-ons that are switched off are locked for you; unlock any you want changed.");
     this.Text("OutfitRandomizer-Randomize", "Randomize");
     this.Text("OutfitRandomizer-UnlockAll", "Unlock all slots");
     this.Text("OutfitRandomizer-AllowToggles", "Allow toggles");
     this.Text("OutfitRandomizer-AllowCyberware", "Allow cyberware");
+    this.Text("OutfitRandomizer-AllowAddons", "Allow add-ons");
     this.Text("OutfitRandomizer-On", "On");
     this.Text("OutfitRandomizer-Off", "Off");
     this.Text("OutfitRandomizer-Locked", "Locked");
@@ -47,6 +48,7 @@ public class ORLanguageEnglish extends ModLocalizationPackage {
     this.Text("OutfitRandomizer-Blocked", "The outfit can't be changed right now.");
     this.Text("OutfitRandomizer-NothingToPick", "Nothing to pick from: no pieces match the search and filters.");
     this.Text("OutfitRandomizer-Done", "Put on {COUNT} pieces. {POOL} pieces match, across {SLOTS} slots.");
+    this.Text("OutfitRandomizer-AutoLocked", "Locked {COUNT} slots worn with toggles, cyberware or add-ons. Unlock any you want changed.");
 
     // Info under the buttons
     this.Text("OutfitRandomizer-LockedSlots", "Locked slots: {COUNT}");

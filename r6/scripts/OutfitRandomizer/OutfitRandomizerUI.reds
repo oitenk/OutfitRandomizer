@@ -70,6 +70,8 @@ public class ORPanel {
   private let m_button: wref<inkCanvas>;
   private let m_togglesOption: wref<SimpleButton>;
   private let m_cyberwareOption: wref<SimpleButton>;
+  private let m_addonsOption: wref<SimpleButton>;
+  private let m_content: wref<inkVerticalPanel>;
   private let m_status: wref<inkText>;
   private let m_info: wref<inkText>;
   private let m_attachTries: Int32;
@@ -262,17 +264,19 @@ public class ORPanel {
     row.SetMargin(inkMargin(0.0, 0.0, 0.0, 10.0));
     row.SetChildMargin(inkMargin(0.0, 0.0, 20.0, 0.0));
     row.Reparent(parent);
-    this.m_togglesOption = this.AddOption(row, n"orAllowToggles", n"OnAllowTogglesClick");
-    this.m_cyberwareOption = this.AddOption(row, n"orAllowCyberware", n"OnAllowCyberwareClick");
+    this.m_togglesOption = this.AddOption(row, n"orAllowToggles", n"OnAllowTogglesClick", 340.0);
+    this.m_cyberwareOption = this.AddOption(row, n"orAllowCyberware", n"OnAllowCyberwareClick", 340.0);
+    this.m_addonsOption = this.AddOption(parent, n"orAllowAddons", n"OnAllowAddonsClick", 700.0);
+    this.m_addonsOption.GetRootWidget().SetMargin(inkMargin(0.0, 0.0, 0.0, 10.0));
     this.RefreshOptions();
   }
 
-  private func AddOption(parent: ref<inkCompoundWidget>, name: CName, callback: CName) -> ref<SimpleButton> {
+  private func AddOption(parent: ref<inkCompoundWidget>, name: CName, callback: CName, width: Float) -> ref<SimpleButton> {
     let button: ref<SimpleButton> = SimpleButton.Create();
     button.SetName(name);
     button.SetText("");
     (button.GetRootCompoundWidget().GetWidget(n"label") as inkText).SetFontSize(28);
-    button.GetRootWidget().SetSize(340.0, 70.0);
+    button.GetRootWidget().SetSize(width, 70.0);
     button.GetRootWidget().SetAnchorPoint(Vector2(0.0, 0.0));
     button.RegisterToCallback(n"OnBtnClick", this, callback);
     button.Reparent(parent);
@@ -290,6 +294,9 @@ public class ORPanel {
     if IsDefined(this.m_cyberwareOption) {
       this.m_cyberwareOption.SetText(this.OptionText("OutfitRandomizer-AllowCyberware", this.m_system.AllowsCyberware()));
     }
+    if IsDefined(this.m_addonsOption) {
+      this.m_addonsOption.SetText(this.OptionText("OutfitRandomizer-AllowAddons", this.m_system.AllowsAddons()));
+    }
   }
 
   private func CreatePanel() -> Void {
@@ -301,8 +308,10 @@ public class ORPanel {
     panel.SetName(n"orPanel");
     panel.SetAnchor(inkEAnchor.TopLeft);
     panel.SetAnchorPoint(Vector2(0.0, 0.0));
-    panel.SetMargin(inkMargin(500.0, 250.0, 0.0, 0.0));
-    panel.SetSize(760.0, 980.0);
+    // Below the outfit list by default, which leaves the weather readout, the outfit
+    // buttons and the item list uncovered. The position is set in Mod Settings.
+    panel.SetMargin(inkMargin(Cast<Float>(this.m_system.GetSettings().panelX), Cast<Float>(this.m_system.GetSettings().panelY), 0.0, 0.0));
+    panel.SetSize(760.0, 940.0);
     panel.SetVisible(false);
     panel.Reparent(this.m_root);
 
@@ -335,6 +344,20 @@ public class ORPanel {
     this.m_info.SetMargin(inkMargin(0.0, 14.0, 0.0, 0.0));
 
     this.m_panel = panel;
+    this.m_content = content;
+  }
+
+  // Sizes the panel to what is in it, as the text under the buttons changes length.
+  private func FitPanel() -> Void {
+    let height: Float;
+    if !IsDefined(this.m_content) || !IsDefined(this.m_panel) {
+      return;
+    }
+    height = this.m_content.GetDesiredHeight();
+    // Before the first layout pass there is nothing to measure, so the starting size stays.
+    if height > 300.0 {
+      this.m_panel.SetHeight(height + 30.0);
+    }
   }
 
   private func IsOpen() -> Bool {
@@ -496,7 +519,17 @@ public class ORPanel {
     }
     this.MarkHeaders(this.m_screen.m_inventoryGridArea as inkCompoundWidget, 0);
     this.Refresh(false);
+    this.FitPanel();
     this.Delay(ORPanelAction.Tick, 0.3);
+  }
+
+  // Locks the slots worn with pieces that are not allowed and says so. Returns how many.
+  private func AutoLockWorn(report: Bool) -> Int32 {
+    let count: Int32 = OR_AutoLock(GetGameInstance());
+    if count > 0 && report && IsDefined(this.m_status) {
+      this.m_status.SetText(StrReplace(OR_Text("OutfitRandomizer-AutoLocked"), "{COUNT}", IntToString(count)));
+    }
+    return count;
   }
 
   protected cb func OnToggleEnter(evt: ref<inkPointerEvent>) -> Bool {
@@ -519,18 +552,30 @@ public class ORPanel {
     }
     this.m_screen.PlaySound(n"Button", n"OnPress");
     this.m_panel.SetVisible(!this.m_panel.IsVisible());
+    if this.m_panel.IsVisible() {
+      this.AutoLockWorn(true);
+    }
     this.Refresh(true);
     return true;
   }
 
   protected cb func OnAllowTogglesClick(widget: wref<inkWidget>) -> Bool {
     this.m_system.SetAllowToggles(!this.m_system.AllowsToggles());
+    this.AutoLockWorn(true);
     this.RefreshOptions();
     return true;
   }
 
   protected cb func OnAllowCyberwareClick(widget: wref<inkWidget>) -> Bool {
     this.m_system.SetAllowCyberware(!this.m_system.AllowsCyberware());
+    this.AutoLockWorn(true);
+    this.RefreshOptions();
+    return true;
+  }
+
+  protected cb func OnAllowAddonsClick(widget: wref<inkWidget>) -> Bool {
+    this.m_system.SetAllowAddons(!this.m_system.AllowsAddons());
+    this.AutoLockWorn(true);
     this.RefreshOptions();
     return true;
   }
@@ -549,6 +594,8 @@ public class ORPanel {
     let poolItems: array<ItemID>;
     let poolSlots: array<TweakDBID>;
     let slotsWithPieces: array<TweakDBID>;
+    let autoLocked: Int32;
+    let text: String;
     let count: Int32;
     let i: Int32;
     if !this.IsOpen() {
@@ -558,6 +605,7 @@ public class ORPanel {
       this.m_status.SetText(OR_Text("OutfitRandomizer-Blocked"));
       return false;
     }
+    autoLocked = this.AutoLockWorn(false);
     OR_CollectPool(this.m_screen, poolItems, poolSlots);
     if ArraySize(poolItems) == 0 {
       this.m_status.SetText(OR_Text("OutfitRandomizer-NothingToPick"));
@@ -576,7 +624,11 @@ public class ORPanel {
         }
         i += 1;
       }
-      this.m_status.SetText(StrReplace(StrReplace(StrReplace(OR_Text("OutfitRandomizer-Done"), "{COUNT}", IntToString(count)), "{POOL}", IntToString(ArraySize(poolItems))), "{SLOTS}", IntToString(ArraySize(slotsWithPieces))));
+      text = StrReplace(StrReplace(StrReplace(OR_Text("OutfitRandomizer-Done"), "{COUNT}", IntToString(count)), "{POOL}", IntToString(ArraySize(poolItems))), "{SLOTS}", IntToString(ArraySize(slotsWithPieces)));
+      if autoLocked > 0 {
+        text += "\n" + StrReplace(OR_Text("OutfitRandomizer-AutoLocked"), "{COUNT}", IntToString(autoLocked));
+      }
+      this.m_status.SetText(text);
     }
     this.Refresh(false);
     this.Delay(ORPanelAction.Refresh, 0.6);

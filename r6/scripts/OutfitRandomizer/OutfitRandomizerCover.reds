@@ -77,11 +77,11 @@ func OR_NameCover(text: String) -> ORCover {
   let tokens: array<String> = OR_Tokens(text);
   // A garment that follows "dress" makes it a different piece (dress shirt, dress shoes).
   let dressGarments: array<String> = ["shirt", "shirts", "pants", "shoe", "shoes", "boot", "boots", "coat", "jacket", "vest", "trousers", "slacks", "belt", "gloves", "glove", "socks", "sock", "hat", "code", "sandals", "sandal", "blazer", "skirt"];
-  let fullWords: array<String> = ["gown", "jumpsuit", "jumpsuits", "bodysuit", "catsuit", "romper", "overall", "overalls", "coverall", "coveralls", "playsuit", "tracksuit", "unitard", "onesie", "leotard", "swimsuit", "swimwear", "robe", "bathrobe"];
+  let fullWords: array<String> = ["gown", "jumpsuit", "jumpsuits", "catsuit", "romper", "overall", "overalls", "coverall", "coveralls", "playsuit", "tracksuit", "unitard", "onesie", "swimwear", "robe", "bathrobe"];
   let notDress: array<String> = ["address", "headdress", "redress"];
   let jacketWords: array<String> = ["blazer", "parka", "poncho", "cape", "cloak", "trench", "windbreaker", "bomber", "anorak", "shrug", "duster", "puffer", "gilet", "vest", "vests", "waistcoat"];
   let bottomWords: array<String> = ["pants", "pant", "jeans", "trousers", "trouser", "shorts", "skirt", "skirts", "skort", "slacks", "chinos", "joggers", "culottes", "kilt", "capris", "bloomers", "bottoms", "bottom"];
-  let topWords: array<String> = ["tee", "tees", "tshirt", "tshirts", "top", "tops", "blouse", "blouses", "tank", "tanks", "hoodie", "hoodies", "hoody", "sweater", "sweaters", "sweatshirt", "pullover", "cardigan", "turtleneck", "polo", "tunic", "jersey", "henley", "halter", "bustier", "corset", "jumper"];
+  let topWords: array<String> = ["tee", "tees", "tshirt", "tshirts", "top", "tops", "blouse", "blouses", "tank", "tanks", "hoodie", "hoodies", "hoody", "sweater", "sweaters", "sweatshirt", "pullover", "cardigan", "turtleneck", "polo", "tunic", "jersey", "henley", "halter", "bustier", "corset", "jumper", "bodysuit", "bodysuits", "leotard", "swimsuit"];
   let notTop: array<String> = ["laptop", "desktop", "rooftop", "hilltop", "tabletop", "treetop", "stop", "atop"];
   let underWords: array<String> = ["bra", "bras", "bralette", "cami", "camisole", "undershirt"];
   let underLegsWords: array<String> = ["panties", "panty", "thong", "briefs", "boxers", "boxer", "leggings", "legging", "jeggings", "tights", "pantyhose", "hosiery", "stockings", "fishnet", "fishnets"];
@@ -165,7 +165,8 @@ func OR_NameCover(text: String) -> ORCover {
 }
 
 // What a slot is for, used when a piece's name says nothing. None for slots that
-// are not part of the main body layers, which are not checked for overlap.
+// are not part of the main body layers, which are not checked for overlap (except
+// the torso aux slot, see OR_CoverOf).
 func OR_SlotCover(slotID: TweakDBID) -> ORCover {
   if slotID == t"OutfitSlots.TorsoUnder" {
     return ORCover.Under;
@@ -215,7 +216,9 @@ func OR_Conflicts(cover: ORCover, accepted: array<Int32>) -> Bool {
 func OR_CoverOf(outfitSystem: ref<OutfitSystem>, itemID: ItemID, slotID: TweakDBID) -> ORCover {
   let fallback: ORCover = OR_SlotCover(slotID);
   let named: ORCover;
-  if Equals(fallback, ORCover.None) {
+  // The aux slot (vests, puffers, harnesses) has no layer of its own, but a vest there
+  // is still a jacket, so it is checked by name alone.
+  if Equals(fallback, ORCover.None) && slotID != t"OutfitSlots.TorsoAux" {
     return ORCover.None;
   }
   named = OR_NameCover(outfitSystem.GetItemName(itemID) + " " + TDBID.ToStringDEBUG(ItemID.GetTDBID(itemID)));

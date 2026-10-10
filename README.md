@@ -18,18 +18,19 @@ Open the Equipment-EX wardrobe and press the die button in the row of small butt
 
 A slot with nothing to pick from is left as it is.
 
-### Toggles and cyberware
+### Toggles, cyberware and add-ons
 
-Two switches in the panel, both off by default, decide what may be picked:
+Three switches in the panel, all off by default, decide what may be picked:
 
 - **Allow toggles** - toggles and adjusters (pieces with "toggle" or "adjust" in their name or ID).
 - **Allow cyberware** - cyberware shown as clothing: everything from the KiasuBurger cyberware mods (their item IDs start with `kiasu_burger`) and any piece with "cyberware" in its name or ID.
+- **Allow add-ons** - things worn that are not clothes: weapon and holster add-ons, decals, and cosmetics such as lip colour and nails.
 
-While a switch is off, those pieces are left out of the random pool. The switches are saved with the game and do not affect pieces you equip by hand.
+While a switch is off, those pieces are left out of the random pool. A slot you are wearing one in is locked for you, the first time it is seen, so your makeup or cyberware is not cleared and you can see it is kept. Point at its row and press **R** to unlock any slot you do want changed; it is not locked again for the same piece. The switches are saved with the game and do not affect pieces you equip by hand.
 
 ### Avoiding overlap
 
-Pieces are checked by name and item ID, not by slot, because modded clothing is often filed under whatever slot its author or the player chose. A dress in a torso slot is still a dress. From the words in the name and ID, each piece in the torso, legs and full-body slots is placed in one of these layers: under (bras and the like), top, jacket, bottom, under-legs (leggings, tights, underwear) or full (dresses, jumpsuits, bodysuits, or a name that lists a top and a bottom). When the name says nothing, the slot decides.
+Pieces are checked by name and item ID, not by slot, because modded clothing is often filed under whatever slot its author or the player chose. A dress in a torso slot is still a dress. From the words in the name and ID, each piece in the torso, legs and full-body slots is placed in one of these layers: under (bras and the like), top, jacket, bottom, under-legs (leggings, tights, underwear) or full (dresses, jumpsuits, catsuits, or a name that lists a top and a bottom). Bodysuits and leotards count as tops, so a bottom can go with them. The torso aux slot (vests, puffers) is checked by name too, so a vest does not go on top of a jacket. When the name says nothing, the slot decides.
 
 The randomizer keeps to one piece per layer, and a full piece goes with nothing but a jacket. A one-piece from one of the body slots is worn alone, with the torso and legs left empty. Pieces already worn in locked slots are counted. If no piece fits a slot it is left empty.
 
@@ -75,9 +76,11 @@ With Mod Settings installed, under **Outfit Randomizer**:
 | Layers | Accessory chance (%) | 45 |
 | Layers | Full-body chance (%) | 0 |
 | Layers | Other slots chance (%) | 20 |
+| Panel | Panel position X | 115 |
+| Panel | Panel position Y | 1120 |
 | Troubleshooting | Debug logging | Off |
 
-*Accessory chance* is rolled separately for each accessory slot: necklaces, earrings, wrists, gloves, belt and scarf. *Other slots chance* covers every slot not listed in the table above, such as shoulders, rings and nails. At 0 those slots are never touched; lock any you want kept.
+*Accessory chance* is rolled separately for each accessory slot: necklaces, earrings, wrists, gloves, belt and scarf. *Other slots chance* covers every slot not listed in the table above, such as shoulders, rings and nails. At 0 those slots are never touched; lock any you want kept. *Panel position* moves the randomizer panel; it starts below the outfit list so it does not cover the buttons or the weather readout. It takes effect when the wardrobe is next opened.
 
 ## Notes
 

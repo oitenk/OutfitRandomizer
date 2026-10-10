@@ -83,6 +83,24 @@ public class ORSettings {
   public let otherChance: Int32 = 20;
 
   @runtimeProperty("ModSettings.mod", "Outfit Randomizer")
+  @runtimeProperty("ModSettings.category", "Panel")
+  @runtimeProperty("ModSettings.displayName", "Panel position X")
+  @runtimeProperty("ModSettings.description", "How far from the left edge of the screen the randomizer panel sits in the wardrobe. Takes effect the next time the wardrobe is opened.")
+  @runtimeProperty("ModSettings.min", "0")
+  @runtimeProperty("ModSettings.max", "3000")
+  @runtimeProperty("ModSettings.step", "10")
+  public let panelX: Int32 = 115;
+
+  @runtimeProperty("ModSettings.mod", "Outfit Randomizer")
+  @runtimeProperty("ModSettings.category", "Panel")
+  @runtimeProperty("ModSettings.displayName", "Panel position Y")
+  @runtimeProperty("ModSettings.description", "How far from the top of the screen the randomizer panel sits in the wardrobe. Takes effect the next time the wardrobe is opened.")
+  @runtimeProperty("ModSettings.min", "0")
+  @runtimeProperty("ModSettings.max", "1500")
+  @runtimeProperty("ModSettings.step", "10")
+  public let panelY: Int32 = 1120;
+
+  @runtimeProperty("ModSettings.mod", "Outfit Randomizer")
   @runtimeProperty("ModSettings.category", "Troubleshooting")
   @runtimeProperty("ModSettings.displayName", "Debug logging")
   @runtimeProperty("ModSettings.description", "Writes each randomized outfit to the Cyber Engine Tweaks game log.")
@@ -108,6 +126,12 @@ public class ORSystem extends ScriptableSystem {
   // Pieces that are normally left out of the random pool, saved with the game.
   private persistent let m_allowToggles: Bool;
   private persistent let m_allowCyberware: Bool;
+  private persistent let m_allowAddons: Bool;
+
+  // The slot and piece of every automatic lock made so far, so that a slot the player
+  // has unlocked is not locked again for the same piece. Saved with the game.
+  private persistent let m_autoLockSlots: array<TweakDBID>;
+  private persistent let m_autoLockItems: array<TweakDBID>;
 
   // The panel in the wardrobe screen that is open, or was open last.
   private let m_panel: ref<IScriptable>;
@@ -165,6 +189,34 @@ public class ORSystem extends ScriptableSystem {
 
   public func AllowsCyberware() -> Bool {
     return this.m_allowCyberware;
+  }
+
+  public func AllowsAddons() -> Bool {
+    return this.m_allowAddons;
+  }
+
+  public func SetAllowAddons(allow: Bool) -> Void {
+    this.m_allowAddons = allow;
+  }
+
+  // Locks a slot because it is worn with a piece that is not allowed in the pool.
+  // Each slot and piece pair is only locked once, so the player can unlock the slots
+  // they want changed. Returns true if this locked a slot that was not locked.
+  public func AutoLockOnce(slotID: TweakDBID, recordID: TweakDBID) -> Bool {
+    let i: Int32 = 0;
+    while i < ArraySize(this.m_autoLockSlots) {
+      if this.m_autoLockSlots[i] == slotID && this.m_autoLockItems[i] == recordID {
+        return false;
+      }
+      i += 1;
+    }
+    ArrayPush(this.m_autoLockSlots, slotID);
+    ArrayPush(this.m_autoLockItems, recordID);
+    if ArrayContains(this.m_lockedSlots, slotID) {
+      return false;
+    }
+    ArrayPush(this.m_lockedSlots, slotID);
+    return true;
   }
 
   public func SetAllowToggles(allow: Bool) -> Void {
@@ -226,24 +278,83 @@ func OR_IsCyberware(name: String, path: String) -> Bool {
   return StrContains(path, "kiasu_burger") || StrContains(path, "kiasuburger") || StrContains(path, "cyberware") || StrContains(name, "cyberware") || StrContains(path, "raid_psy");
 }
 
-// Whether a piece is left out of the random pool. Toggles and cyberware are kept out
-// unless the player has allowed them in the panel.
+// Things that are worn but are not clothes: weapon and holster add-ons, decals and
+// cosmetics such as lip colour and nails. Aldecaldos is not a decal.
+@if(ModuleExists("EquipmentEx"))
+func OR_IsAddon(name: String, path: String) -> Bool {
+  let words: array<String> = ["weapon", "holster", "bandolier", "addon", "add-on", "decal", "cosmetic", "lipstick", "eyeshadow", "eyeliner", "mascara", "makeup", "pedicure", "manicure"];
+  let tokens: array<String> = ["lips", "nails", "nail", "blush"];
+  let text: String = StrReplace(StrReplace(name + " " + path, "aldecaldos", ""), "-", " ");
+  let found: array<String> = OR_Tokens(text);
+  let i: Int32 = 0;
+  while i < ArraySize(words) {
+    if StrContains(text, StrReplace(words[i], "-", " ")) {
+      return true;
+    }
+    i += 1;
+  }
+  i = 0;
+  while i < ArraySize(tokens) {
+    if ArrayContains(found, tokens[i]) {
+      return true;
+    }
+    i += 1;
+  }
+  return false;
+}
+
+// Whether a piece is left out of the random pool, and left alone when it is worn.
+// Toggles, cyberware and add-ons are kept out unless the player has allowed them in
+// the panel.
 @if(ModuleExists("EquipmentEx"))
 func OR_IsExcluded(system: ref<ORSystem>, outfitSystem: ref<OutfitSystem>, itemID: ItemID) -> Bool {
   let name: String;
   let path: String;
-  if system.AllowsToggles() && system.AllowsCyberware() {
+  if system.AllowsToggles() && system.AllowsCyberware() && system.AllowsAddons() {
     return false;
   }
   name = UTF8StrLower(outfitSystem.GetItemName(itemID));
   path = UTF8StrLower(TDBID.ToStringDEBUG(ItemID.GetTDBID(itemID)));
-  return (!system.AllowsToggles() && OR_IsToggle(name, path)) || (!system.AllowsCyberware() && OR_IsCyberware(name, path));
+  return (!system.AllowsToggles() && OR_IsToggle(name, path))
+    || (!system.AllowsCyberware() && OR_IsCyberware(name, path))
+    || (!system.AllowsAddons() && OR_IsAddon(name, path));
 }
 
 // Whether a slot can be rerolled: not locked, and the pool has a piece for it.
 @if(ModuleExists("EquipmentEx"))
 func OR_IsOpen(system: ref<ORSystem>, poolSlots: script_ref<array<TweakDBID>>, slotID: TweakDBID) -> Bool {
   return !system.IsLocked(slotID) && ArrayContains(Deref(poolSlots), slotID);
+}
+
+// Locks every slot that is worn with a toggle, cyberware piece or add-on while that
+// kind is not allowed, so the randomizer leaves it as it is and the player can see it
+// is kept. A slot is locked once for each piece; if the player unlocks it, it stays
+// unlocked. Returns how many slots were locked now.
+@if(ModuleExists("EquipmentEx"))
+func OR_AutoLock(game: GameInstance) -> Int32 {
+  let system: ref<ORSystem> = ORSystem.Get(game);
+  let outfitSystem: ref<OutfitSystem> = OutfitSystem.GetInstance(game);
+  let transactionSystem: ref<TransactionSystem> = GameInstance.GetTransactionSystem(game);
+  let player: ref<GameObject> = GetPlayer(game);
+  let usedSlots: array<TweakDBID>;
+  let worn: ref<ItemObject>;
+  let added: Int32 = 0;
+  let i: Int32 = 0;
+  if !IsDefined(system) || !IsDefined(outfitSystem) || !IsDefined(player) {
+    return 0;
+  }
+  usedSlots = outfitSystem.GetUsedSlots();
+  while i < ArraySize(usedSlots) {
+    worn = transactionSystem.GetItemInSlot(player, usedSlots[i]);
+    if IsDefined(worn) && OR_IsExcluded(system, outfitSystem, worn.GetItemID()) {
+      if system.AutoLockOnce(usedSlots[i], ItemID.GetTDBID(worn.GetItemID())) {
+        added += 1;
+        system.Log("locked " + outfitSystem.GetSlotName(usedSlots[i]) + ": worn with " + outfitSystem.GetItemName(worn.GetItemID()));
+      }
+    }
+    i += 1;
+  }
+  return added;
 }
 
 // A random piece from the pool for the given slot, as an index, or -1 if there is
@@ -455,6 +566,7 @@ func OR_Randomize(game: GameInstance, poolItems: array<ItemID>, poolSlots: array
     system.Log("skipped: outfit changes are blocked");
     return -1;
   }
+
 
   // A one-piece covers the torso and legs, so when one is worn (picked now, or locked
   // and kept) the layers under and over it are emptied instead of piled on top.
