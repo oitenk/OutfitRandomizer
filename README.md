@@ -18,6 +18,24 @@ Open the Equipment-EX wardrobe and press the die button in the row of small butt
 
 A slot with nothing to pick from is left as it is.
 
+### Dressing for a district
+
+Press **DISTRICT** in the panel to open a pop-out, laid out like WEAVE's tag pop-out, and tick one or more of:
+
+- **Any** clears the choice, and **Where I am** follows the district you are standing in when you press Randomize.
+- **Corpo**, **Street**, **Wild** and **Club** are kinds of place. Each prefers pieces with some of WEAVE's style tags: Corpo prefers Corpo and Formal; Street prefers Streetwear, Casual and Sports; Wild prefers Biker, Cowboy, Industrial and Military; Club prefers Stylish, Formal, Rocker and Punk.
+- Districts: Corpo Plaza, Downtown, Arasaka Waterfront, Charter Hill, North Oak and Japantown; Glen, Vista del Rey, Wellsprings, Kabuki, Little China, Northside, Arroyo and Rancho Coronado; Coastview, West Wind Estate, Badlands and Dogtown.
+
+Each district has the gangs that are most present there and a wealth tier, and the randomizer prefers pieces carrying those tags (the same gang and Rich / Simple / Poor tags WEAVE shows in its tag filter, though WEAVE is not needed for them to count). For example, Kabuki prefers Tyger Claws, Maelstrom and Moxes pieces, and Glen prefers Valentinos. The tables, including the style tags for the kinds of place, are this mod's own.
+
+It is a preference, not a filter, so a slot with nothing tagged still gets a piece. At least four pieces come from the district's tags when there are enough, as [Street Sense](https://www.nexusmods.com/cyberpunk2077/mods/28989) counts a disguise as complete at four, and after that each piece does on the **District tag strength** setting's chance. The status line says how many pieces carried the tags. WEAVE's own tag filter still works on top of this and narrows the pool first.
+
+### Saving the result
+
+Press **SAVE OUTFIT** after a randomize and the wardrobe's own save pop-up opens with a name already filled in, which you can change before confirming. The name uses the words [Dynamic Wardrobe](https://strahlimeier.gitbook.io/dynamic-wardrobe) matches on: any kinds of place you chose (`corpo`, `street`, `wild`, `club`), then the districts, such as `STREET KABUKI`. Corpo, street, wild and club are only added when you chose them, and a district is only added when you chose one or picked **Where I am**. With nothing chosen it suggests `RANDOM`. A number is added if the name is taken, and saving over an existing outfit asks first.
+
+Dynamic Wardrobe is not needed. Outfits swap on their own when it is installed and you enter a matching place, and it can replace a randomized outfit the next time you cross a district boundary.
+
 ### Leaving pieces out
 
 Tag any piece **OMIT** and the randomizer never picks it. This is for pieces that only look right with certain other pieces, such as modular helmet parts, that you do not want turning up in random outfits. Nothing is locked: if you are wearing one, a randomize can still replace it, so lock the slot yourself (**R**) to keep it. With [WEAVE](https://www.nexusmods.com/cyberpunk2077/mods/28273), point at the piece in the wardrobe list, press **T** to open the tag editor and add a custom tag called OMIT. To tag several at once, mark them with **Z** first. The tag is not case sensitive, and a mod that gives its items an OMIT tag works the same way.
@@ -80,6 +98,7 @@ With Mod Settings installed, under **Outfit Randomizer**:
 | Layers | Accessory chance (%) | 45 |
 | Layers | Full-body chance (%) | 0 |
 | Layers | Other slots chance (%) | 20 |
+| District | District tag strength (%) | 70 |
 | Panel | Panel position X | 115 |
 | Panel | Panel position Y | 1120 |
 | Troubleshooting | Debug logging | Off |
@@ -97,6 +116,7 @@ With Mod Settings installed, under **Outfit Randomizer**:
 - **psiberx** for [Equipment-EX](https://github.com/psiberx/cp2077-equipment-ex), whose outfit system and wardrobe screen this mod builds on.
 - **ApoKrytia** for [WEAVE](https://www.nexusmods.com/cyberpunk2077/mods/28273) and its clothing tags.
 - **DigitalVixen** for [Street Sense](https://www.nexusmods.com/cyberpunk2077/mods/28989) and its clothing score API.
+- **Strahlimeier** for [Dynamic Wardrobe](https://strahlimeier.gitbook.io/dynamic-wardrobe), whose outfit naming words the suggested save name follows.
 
 The code in this repository was written with Claude, an AI assistant.
 

@@ -40,6 +40,7 @@ public class ORLanguageEnglish extends ModLocalizationPackage {
     this.Text("OutfitRandomizer-AllowAddons", "Allow add-ons");
     this.Text("OutfitRandomizer-On", "On");
     this.Text("OutfitRandomizer-Off", "Off");
+    this.Text("OutfitRandomizer-Save", "Save outfit");
     this.Text("OutfitRandomizer-Locked", "Locked");
     this.Text("OutfitRandomizer-LockSlot", "Lock slot");
     this.Text("OutfitRandomizer-UnlockSlot", "Unlock slot");
@@ -49,6 +50,40 @@ public class ORLanguageEnglish extends ModLocalizationPackage {
     this.Text("OutfitRandomizer-NothingToPick", "Nothing to pick from: no pieces match the search and filters.");
     this.Text("OutfitRandomizer-Done", "Put on {COUNT} pieces. {POOL} pieces match, across {SLOTS} slots.");
     this.Text("OutfitRandomizer-AutoLocked", "Locked {COUNT} slots worn with toggles, cyberware or add-ons. Unlock any you want changed.");
+
+    this.Text("OutfitRandomizer-NothingToSave", "There is no outfit to save yet. Randomize first.");
+    this.Text("OutfitRandomizer-Saved", "Saved as {NAME}.");
+    this.Text("OutfitRandomizer-DistrictResult", "{TAGGED} of {COUNT} pieces carry the chosen tags.");
+    this.Text("OutfitRandomizer-DistrictUnknown", "No district recognised here, so the pieces were picked freely.");
+    this.Text("OutfitRandomizer-Region-club", "Club");
+
+    // Districts
+    this.Text("OutfitRandomizer-DistrictButton", "District");
+    this.Text("OutfitRandomizer-DistrictTitle", "District");
+    this.Text("OutfitRandomizer-DistrictAny", "Any");
+    this.Text("OutfitRandomizer-DistrictCurrent", "Where I am");
+    this.Text("OutfitRandomizer-DistrictCount", "{COUNT} chosen");
+    this.Text("OutfitRandomizer-Region-corpo", "Corpo");
+    this.Text("OutfitRandomizer-Region-street", "Street");
+    this.Text("OutfitRandomizer-Region-wild", "Wild");
+    this.Text("OutfitRandomizer-District-corpoplaza", "Corpo Plaza");
+    this.Text("OutfitRandomizer-District-downtown", "Downtown");
+    this.Text("OutfitRandomizer-District-arasakawaterfront", "Arasaka Waterfront");
+    this.Text("OutfitRandomizer-District-charterhill", "Charter Hill");
+    this.Text("OutfitRandomizer-District-northoaks", "North Oak");
+    this.Text("OutfitRandomizer-District-japantown", "Japantown");
+    this.Text("OutfitRandomizer-District-glen", "Glen");
+    this.Text("OutfitRandomizer-District-vistadelrey", "Vista del Rey");
+    this.Text("OutfitRandomizer-District-wellsprings", "Wellsprings");
+    this.Text("OutfitRandomizer-District-kabuki", "Kabuki");
+    this.Text("OutfitRandomizer-District-littlechina", "Little China");
+    this.Text("OutfitRandomizer-District-northside", "Northside");
+    this.Text("OutfitRandomizer-District-arroyo", "Arroyo");
+    this.Text("OutfitRandomizer-District-ranchocoronado", "Rancho Coronado");
+    this.Text("OutfitRandomizer-District-coastview", "Coastview");
+    this.Text("OutfitRandomizer-District-westwindestate", "West Wind Estate");
+    this.Text("OutfitRandomizer-District-badlands", "Badlands");
+    this.Text("OutfitRandomizer-District-dogtown", "Dogtown");
 
     // Info under the buttons
     this.Text("OutfitRandomizer-LockedSlots", "Locked slots: {COUNT}");

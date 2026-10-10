@@ -83,6 +83,15 @@ public class ORSettings {
   public let otherChance: Int32 = 20;
 
   @runtimeProperty("ModSettings.mod", "Outfit Randomizer")
+  @runtimeProperty("ModSettings.category", "District")
+  @runtimeProperty("ModSettings.displayName", "District tag strength (%)")
+  @runtimeProperty("ModSettings.description", "When districts are chosen in the panel, how often a piece is picked from the pieces tagged for them. At least four pieces always are, when there are enough, as Street Sense counts a disguise as complete at four.")
+  @runtimeProperty("ModSettings.min", "0")
+  @runtimeProperty("ModSettings.max", "100")
+  @runtimeProperty("ModSettings.step", "5")
+  public let districtStrength: Int32 = 70;
+
+  @runtimeProperty("ModSettings.mod", "Outfit Randomizer")
   @runtimeProperty("ModSettings.category", "Panel")
   @runtimeProperty("ModSettings.displayName", "Panel position X")
   @runtimeProperty("ModSettings.description", "How far from the left edge of the screen the randomizer panel sits in the wardrobe. Takes effect the next time the wardrobe is opened.")
@@ -127,6 +136,12 @@ public class ORSystem extends ScriptableSystem {
   private persistent let m_allowToggles: Bool;
   private persistent let m_allowCyberware: Bool;
   private persistent let m_allowAddons: Bool;
+
+  // The districts chosen in the panel, by id ("current" follows where the player is).
+  private persistent let m_districts: array<CName>;
+
+  // How many pieces of the last randomize came from the district tags.
+  private let m_lastTagged: Int32;
 
   // The slot and piece of every automatic lock made so far, so that a slot the player
   // has unlocked is not locked again for the same piece. Saved with the game.
@@ -189,6 +204,38 @@ public class ORSystem extends ScriptableSystem {
 
   public func AllowsCyberware() -> Bool {
     return this.m_allowCyberware;
+  }
+
+  public func GetDistricts() -> array<CName> {
+    return this.m_districts;
+  }
+
+  public func HasDistrict(id: CName) -> Bool {
+    return ArrayContains(this.m_districts, id);
+  }
+
+  public func ToggleDistrict(id: CName) -> Void {
+    if ArrayContains(this.m_districts, id) {
+      ArrayRemove(this.m_districts, id);
+    } else {
+      ArrayPush(this.m_districts, id);
+    }
+  }
+
+  public func ClearDistricts() -> Void {
+    ArrayClear(this.m_districts);
+  }
+
+  public func DistrictCount() -> Int32 {
+    return ArraySize(this.m_districts);
+  }
+
+  public func SetLastTagged(count: Int32) -> Void {
+    this.m_lastTagged = count;
+  }
+
+  public func LastTagged() -> Int32 {
+    return this.m_lastTagged;
   }
 
   public func AllowsAddons() -> Bool {
@@ -384,44 +431,88 @@ func OR_AutoLock(game: GameInstance) -> Int32 {
   return added;
 }
 
-// A random piece from the pool for the given slot, as an index, or -1 if there is
-// none that fits. Pieces that overlap what is already chosen (the cover codes in
-// accepted) are skipped, and the piece already worn is only used when nothing else
-// fits.
+// Whether a piece has any of the wanted tags.
 @if(ModuleExists("EquipmentEx"))
-func OR_Pick(outfitSystem: ref<OutfitSystem>, poolItems: script_ref<array<ItemID>>, poolSlots: script_ref<array<TweakDBID>>, slotID: TweakDBID, accepted: array<Int32>) -> Int32 {
-  let fresh: array<Int32>;
-  let worn: array<Int32>;
-  let list: array<Int32>;
-  let attempts: Int32;
-  let at: Int32;
-  let index: Int32;
-  let round: Int32 = 0;
+func OR_AnyTag(itemTags: array<CName>, wanted: array<CName>) -> Bool {
   let i: Int32 = 0;
-  while i < ArraySize(Deref(poolItems)) {
-    if Deref(poolSlots)[i] == slotID {
-      if outfitSystem.IsEquipped(Deref(poolItems)[i]) {
-        ArrayPush(worn, i);
-      } else {
-        ArrayPush(fresh, i);
-      }
+  while i < ArraySize(wanted) {
+    if ArrayContains(itemTags, wanted[i]) {
+      return true;
     }
     i += 1;
   }
-  while round < 2 {
-    list = round == 0 ? fresh : worn;
+  return false;
+}
+
+// A random piece from the pool for the given slot, as an index, or -1 if there is
+// none that fits. Pieces that overlap what is already chosen (the cover codes in
+// accepted) are skipped, and the piece already worn is only used when nothing else
+// fits. With prefer on, pieces carrying one of the tags (gang or style) come first, then
+// ones carrying a wealth tag, then the rest; tagged says whether the choice carries one
+// of the first kind.
+@if(ModuleExists("EquipmentEx"))
+func OR_Pick(outfitSystem: ref<OutfitSystem>, poolItems: script_ref<array<ItemID>>, poolSlots: script_ref<array<TweakDBID>>, slotID: TweakDBID, accepted: array<Int32>, factions: array<CName>, wealth: array<CName>, prefer: Bool, out tagged: Bool) -> Int32 {
+  let candidates: array<Int32>;
+  let ranks: array<Int32>;
+  let tiers: array<Int32>;
+  let list: array<Int32>;
+  let record: ref<Item_Record>;
+  let itemTags: array<CName>;
+  let tier: Int32;
+  let attempts: Int32;
+  let at: Int32;
+  let position: Int32;
+  let index: Int32;
+  let rank: Int32;
+  let i: Int32 = 0;
+  tagged = false;
+  while i < ArraySize(Deref(poolItems)) {
+    if Deref(poolSlots)[i] == slotID {
+      tier = 0;
+      if prefer {
+        record = TweakDBInterface.GetItemRecord(ItemID.GetTDBID(Deref(poolItems)[i]));
+        if IsDefined(record) {
+          itemTags = record.Tags();
+          if OR_AnyTag(itemTags, factions) {
+            tier = 2;
+          } else {
+            if OR_AnyTag(itemTags, wealth) {
+              tier = 1;
+            }
+          }
+        }
+      }
+      ArrayPush(candidates, i);
+      ArrayPush(tiers, tier);
+      // Better tiers first, and within a tier the pieces not already worn.
+      ArrayPush(ranks, tier * 2 + (outfitSystem.IsEquipped(Deref(poolItems)[i]) ? 0 : 1));
+    }
+    i += 1;
+  }
+  rank = prefer ? 5 : 1;
+  while rank >= 0 {
+    ArrayClear(list);
+    i = 0;
+    while i < ArraySize(candidates) {
+      if ranks[i] == rank {
+        ArrayPush(list, i);
+      }
+      i += 1;
+    }
     // Looking at a piece means reading its name, so there is a limit.
     attempts = 0;
     while ArraySize(list) > 0 && attempts < 60 {
       at = RandRange(0, ArraySize(list));
-      index = list[at];
+      position = list[at];
       ArrayErase(list, at);
+      index = candidates[position];
       if !OR_Conflicts(OR_CoverOf(outfitSystem, Deref(poolItems)[index], slotID), accepted) {
+        tagged = tiers[position] == 2;
         return index;
       }
       attempts += 1;
     }
-    round += 1;
+    rank -= 1;
   }
   return -1;
 }
@@ -560,7 +651,7 @@ func OR_PlanLayers(system: ref<ORSystem>, outfitSystem: ref<OutfitSystem>, poolS
 // slot it goes in, as parallel arrays). A slot with nothing in the pool is left as
 // it is. Returns how many pieces were put on, or -1 if outfits can't be changed.
 @if(ModuleExists("EquipmentEx"))
-func OR_Randomize(game: GameInstance, poolItems: array<ItemID>, poolSlots: array<TweakDBID>) -> Int32 {
+func OR_Randomize(game: GameInstance, poolItems: array<ItemID>, poolSlots: array<TweakDBID>, factions: array<CName>, wealth: array<CName>) -> Int32 {
   let system: ref<ORSystem> = ORSystem.Get(game);
   let settings: ref<ORSettings> = system.GetSettings();
   let outfitSystem: ref<OutfitSystem> = OutfitSystem.GetInstance(game);
@@ -588,6 +679,10 @@ func OR_Randomize(game: GameInstance, poolItems: array<ItemID>, poolSlots: array
   let summary: String;
   let pick: Int32;
   let count: Int32 = 0;
+  let taggedCount: Int32 = 0;
+  let hasTags: Bool = ArraySize(factions) > 0 || ArraySize(wealth) > 0;
+  let prefer: Bool;
+  let wasTagged: Bool;
   let i: Int32;
   if !IsDefined(outfitSystem) || outfitSystem.IsBlocked() {
     system.Log("skipped: outfit changes are blocked");
@@ -648,8 +743,15 @@ func OR_Randomize(game: GameInstance, poolItems: array<ItemID>, poolSlots: array
   // so far. A slot with no piece that fits is emptied.
   i = 0;
   while i < ArraySize(fills) {
-    pick = OR_Pick(outfitSystem, poolItems, poolSlots, fills[i], accepted);
+    // Chosen districts steer the picks: the first four slots with a tagged piece to offer
+    // take one, as Street Sense counts a disguise as complete at four, and after that
+    // each slot does on the strength setting's chance.
+    prefer = hasTags && (taggedCount < 4 || OR_Roll(settings.districtStrength));
+    pick = OR_Pick(outfitSystem, poolItems, poolSlots, fills[i], accepted, factions, wealth, prefer, wasTagged);
     if pick >= 0 {
+      if wasTagged {
+        taggedCount += 1;
+      }
       cover = OR_CoverOf(outfitSystem, poolItems[pick], fills[i]);
       if NotEquals(cover, ORCover.None) {
         ArrayPush(accepted, EnumInt(cover));
@@ -680,6 +782,7 @@ func OR_Randomize(game: GameInstance, poolItems: array<ItemID>, poolSlots: array
     }
     i += 1;
   }
-  system.Log("pool=" + IntToString(ArraySize(poolItems)) + " outfit: " + summary);
+  system.SetLastTagged(taggedCount);
+  system.Log("pool=" + IntToString(ArraySize(poolItems)) + " tagged=" + IntToString(taggedCount) + " outfit: " + summary);
   return count;
 }

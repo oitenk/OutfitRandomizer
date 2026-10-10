@@ -71,6 +71,9 @@ public class ORPanel {
   private let m_togglesOption: wref<SimpleButton>;
   private let m_cyberwareOption: wref<SimpleButton>;
   private let m_addonsOption: wref<SimpleButton>;
+  private let m_districtButton: wref<SimpleButton>;
+  private let m_popupToken: ref<inkGameNotificationToken>;
+  private let m_pendingName: CName;
   private let m_content: wref<inkVerticalPanel>;
   private let m_status: wref<inkText>;
   private let m_info: wref<inkText>;
@@ -245,16 +248,59 @@ public class ORPanel {
     return widget;
   }
 
-  private func AddButton(parent: ref<inkCompoundWidget>, name: CName, text: String, callback: CName) -> Void {
+  private func AddRow(parent: ref<inkCompoundWidget>) -> ref<inkHorizontalPanel> {
+    let row: ref<inkHorizontalPanel> = new inkHorizontalPanel();
+    row.SetMargin(inkMargin(0.0, 0.0, 0.0, 10.0));
+    row.SetChildMargin(inkMargin(0.0, 0.0, 20.0, 0.0));
+    row.Reparent(parent);
+    return row;
+  }
+
+  private func AddRowButton(parent: ref<inkCompoundWidget>, name: CName, text: String, callback: CName, width: Float, height: Float, fontSize: Int32) -> ref<SimpleButton> {
     let button: ref<SimpleButton> = SimpleButton.Create();
     button.SetName(name);
     button.SetText(text);
-    (button.GetRootCompoundWidget().GetWidget(n"label") as inkText).SetFontSize(42);
-    button.GetRootWidget().SetSize(700.0, 80.0);
+    (button.GetRootCompoundWidget().GetWidget(n"label") as inkText).SetFontSize(fontSize);
+    button.GetRootWidget().SetSize(width, height);
     button.GetRootWidget().SetAnchorPoint(Vector2(0.0, 0.0));
-    button.GetRootWidget().SetMargin(inkMargin(0.0, 10.0, 0.0, 10.0));
     button.RegisterToCallback(n"OnBtnClick", this, callback);
     button.Reparent(parent);
+    return button;
+  }
+
+  // Randomize and Save side by side, then Unlock All and the district choice.
+  private func AddMainRows(parent: ref<inkCompoundWidget>) -> Void {
+    let first: ref<inkHorizontalPanel> = this.AddRow(parent);
+    let second: ref<inkHorizontalPanel> = this.AddRow(parent);
+    first.SetMargin(inkMargin(0.0, 10.0, 0.0, 10.0));
+    this.AddRowButton(first, n"orRandomizeButton", UTF8StrUpper(OR_Text("OutfitRandomizer-Randomize")), n"OnRandomizeClick", 340.0, 80.0, 36);
+    this.AddRowButton(first, n"orSaveButton", UTF8StrUpper(OR_Text("OutfitRandomizer-Save")), n"OnSaveClick", 340.0, 80.0, 36);
+    this.AddRowButton(second, n"orUnlockButton", UTF8StrUpper(OR_Text("OutfitRandomizer-UnlockAll")), n"OnUnlockClick", 260.0, 70.0, 26);
+    this.m_districtButton = this.AddRowButton(second, n"orDistrictButton", "", n"OnDistrictClick", 420.0, 70.0, 26);
+    this.RefreshDistrictButton();
+  }
+
+  // What the district button says: nothing chosen, where I am, a district, or how many.
+  private func RefreshDistrictButton() -> Void {
+    let ids: array<CName> = this.m_system.GetDistricts();
+    let name: String;
+    if !IsDefined(this.m_districtButton) {
+      return;
+    }
+    if ArraySize(ids) == 0 {
+      name = OR_Text("OutfitRandomizer-DistrictAny");
+    } else {
+      if ArraySize(ids) == 1 {
+        if Equals(ids[0], n"current") {
+          name = OR_Text("OutfitRandomizer-DistrictCurrent");
+        } else {
+          name = ORDistricts.IsGroup(ids[0]) ? ORDistricts.GroupName(ids[0]) : ORDistricts.Name(ids[0]);
+        }
+      } else {
+        name = StrReplace(OR_Text("OutfitRandomizer-DistrictCount"), "{COUNT}", IntToString(ArraySize(ids)));
+      }
+    }
+    this.m_districtButton.SetText(UTF8StrUpper(OR_Text("OutfitRandomizer-DistrictButton") + ": " + name));
   }
 
   // The two switches for what may be picked, side by side to keep the panel short.
@@ -336,8 +382,7 @@ public class ORPanel {
 
     this.AddText(content, UTF8StrUpper(OR_Text("OutfitRandomizer-Title")), 42, n"MainColors.Blue");
     this.AddText(content, OR_Text("OutfitRandomizer-Help"), 30, n"MainColors.Red");
-    this.AddButton(content, n"orRandomizeButton", UTF8StrUpper(OR_Text("OutfitRandomizer-Randomize")), n"OnRandomizeClick");
-    this.AddButton(content, n"orUnlockButton", UTF8StrUpper(OR_Text("OutfitRandomizer-UnlockAll")), n"OnUnlockClick");
+    this.AddMainRows(content);
     this.AddOptions(content);
     this.m_status = this.AddText(content, "", 32, n"MainColors.Blue");
     this.m_info = this.AddText(content, "", 30, n"MainColors.Blue");
@@ -498,6 +543,7 @@ public class ORPanel {
     if !this.IsOpen() {
       return;
     }
+    this.RefreshDistrictButton();
     if readout {
       this.m_readout = OR_StreetSenseReadout(this.m_player);
     }
@@ -580,6 +626,96 @@ public class ORPanel {
     return true;
   }
 
+  protected cb func OnDistrictClick(widget: wref<inkWidget>) -> Bool {
+    if !this.IsOpen() {
+      return false;
+    }
+    ORDistrictPopup.Show(this.m_screen, this.m_system);
+    return true;
+  }
+
+  // The name offered when saving: the words of the kinds of place chosen (corpo, street,
+  // wild, club) and then of the districts, which are the words Dynamic Wardrobe matches
+  // outfit names on. The district itself is only added when one is chosen or being
+  // followed. It is made unique, and the player can change it.
+  private func SuggestName() -> String {
+    let districts: array<ref<ORDistrict>> = OR_ResolveDistricts(this.m_system, GetGameInstance());
+    let groups: array<CName> = OR_SelectedGroups(this.m_system);
+    let base: String = "";
+    let name: String;
+    let number: Int32 = 2;
+    let i: Int32 = 0;
+    while i < ArraySize(groups) {
+      base += (StrLen(base) > 0 ? " " : "") + NameToString(groups[i]);
+      i += 1;
+    }
+    i = 0;
+    while i < ArraySize(districts) {
+      base += (StrLen(base) > 0 ? " " : "") + NameToString(districts[i].id);
+      i += 1;
+    }
+    if StrLen(base) == 0 {
+      base = "random";
+    }
+    base = UTF8StrUpper(base);
+    name = base;
+    while this.m_outfitSystem.HasOutfit(StringToName(name)) {
+      name = base + " " + IntToString(number);
+      number += 1;
+    }
+    return name;
+  }
+
+  protected cb func OnSaveClick(widget: wref<inkWidget>) -> Bool {
+    if !this.IsOpen() {
+      return false;
+    }
+    if !this.m_outfitSystem.IsActive() {
+      this.m_status.SetText(OR_Text("OutfitRandomizer-NothingToSave"));
+      return false;
+    }
+    this.m_popupToken = OR_ShowSaveInput(this.m_screen, GetLocalizedTextByKey(n"UI-Wardrobe-SaveSet"), GetLocalizedTextByKey(n"UI-Wardrobe-NotificationSaveSet"), this.SuggestName());
+    this.m_popupToken.RegisterListener(this, n"OnSavePopupClosed");
+    return true;
+  }
+
+  private func SaveAs(name: CName) -> Void {
+    if this.m_outfitSystem.SaveOutfit(name, true) {
+      // The wardrobe's outfit list does not notice a save made from here by itself.
+      GameInstance.GetUISystem(GetGameInstance()).QueueEvent(new OutfitListUpdated());
+      this.m_screen.PlaySound(n"Item", n"OnBuy");
+      this.m_status.SetText(StrReplace(OR_Text("OutfitRandomizer-Saved"), "{NAME}", NameToString(name)));
+    }
+  }
+
+  protected cb func OnSavePopupClosed(data: ref<inkGameNotificationData>) -> Bool {
+    let result: ref<GenericMessageNotificationCloseData> = data as GenericMessageNotificationCloseData;
+    let name: CName;
+    this.m_popupToken = null;
+    if !IsDefined(result) || NotEquals(result.result, GenericMessageNotificationResult.Confirm) || Equals(result.input, "") {
+      return true;
+    }
+    name = StringToName(result.input);
+    if this.m_outfitSystem.HasOutfit(name) {
+      // The same question the wardrobe asks before replacing an outfit.
+      this.m_pendingName = name;
+      this.m_popupToken = GenericMessageNotification.Show(this.m_screen, GetLocalizedTextByKey(n"UI-Wardrobe-SaveSet"), GetLocalizedTextByKey(n"UI-Wardrobe-NotificationReplaceSet"), GenericMessageNotificationType.ConfirmCancel);
+      this.m_popupToken.RegisterListener(this, n"OnReplacePopupClosed");
+      return true;
+    }
+    this.SaveAs(name);
+    return true;
+  }
+
+  protected cb func OnReplacePopupClosed(data: ref<inkGameNotificationData>) -> Bool {
+    let result: ref<GenericMessageNotificationCloseData> = data as GenericMessageNotificationCloseData;
+    this.m_popupToken = null;
+    if IsDefined(result) && Equals(result.result, GenericMessageNotificationResult.Confirm) {
+      this.SaveAs(this.m_pendingName);
+    }
+    return true;
+  }
+
   protected cb func OnUnlockClick(widget: wref<inkWidget>) -> Bool {
     if !this.IsOpen() {
       return false;
@@ -595,6 +731,9 @@ public class ORPanel {
     let poolSlots: array<TweakDBID>;
     let slotsWithPieces: array<TweakDBID>;
     let autoLocked: Int32;
+    let districts: array<ref<ORDistrict>>;
+    let factions: array<CName>;
+    let wealth: array<CName>;
     let text: String;
     let count: Int32;
     let i: Int32;
@@ -611,7 +750,9 @@ public class ORPanel {
       this.m_status.SetText(OR_Text("OutfitRandomizer-NothingToPick"));
       return false;
     }
-    count = OR_Randomize(GetGameInstance(), poolItems, poolSlots);
+    districts = OR_ResolveDistricts(this.m_system, GetGameInstance());
+    OR_DistrictTags(districts, OR_SelectedGroups(this.m_system), factions, wealth);
+    count = OR_Randomize(GetGameInstance(), poolItems, poolSlots, factions, wealth);
     if count < 0 {
       this.m_status.SetText(OR_Text("OutfitRandomizer-Blocked"));
     } else {
@@ -625,6 +766,13 @@ public class ORPanel {
         i += 1;
       }
       text = StrReplace(StrReplace(StrReplace(OR_Text("OutfitRandomizer-Done"), "{COUNT}", IntToString(count)), "{POOL}", IntToString(ArraySize(poolItems))), "{SLOTS}", IntToString(ArraySize(slotsWithPieces)));
+      if ArraySize(factions) > 0 {
+        text += "\n" + StrReplace(StrReplace(OR_Text("OutfitRandomizer-DistrictResult"), "{TAGGED}", IntToString(this.m_system.LastTagged())), "{COUNT}", IntToString(count));
+      } else {
+        if this.m_system.DistrictCount() > 0 {
+          text += "\n" + OR_Text("OutfitRandomizer-DistrictUnknown");
+        }
+      }
       if autoLocked > 0 {
         text += "\n" + StrReplace(OR_Text("OutfitRandomizer-AutoLocked"), "{COUNT}", IntToString(autoLocked));
       }
@@ -824,4 +972,51 @@ func OR_StreetSenseReadout(player: wref<PlayerPuppet>) -> String {
 @if(!ModuleExists("StreetSense"))
 func OR_StreetSenseReadout(player: wref<PlayerPuppet>) -> String {
   return "";
+}
+
+// --- The save pop-up, with the name filled in ---
+
+@if(ModuleExists("EquipmentEx"))
+@addField(GenericMessageNotificationData)
+public let orPrefill: String;
+
+// The same pop-up the wardrobe uses to ask for an outfit name, but with the text
+// already in the box.
+@if(ModuleExists("EquipmentEx"))
+func OR_ShowSaveInput(controller: ref<worlduiIGameController>, title: String, message: String, prefill: String) -> ref<inkGameNotificationToken> {
+  let data = GenericMessageNotification.GetBaseData();
+  data.title = title;
+  data.message = message;
+  data.type = GenericMessageNotificationType.ConfirmCancel;
+  data.isInput = true;
+  data.orPrefill = prefill;
+  return controller.ShowGameNotification(data);
+}
+
+@if(ModuleExists("EquipmentEx"))
+public class ORPrefillCallback extends DelayCallback {
+  public let m_notification: wref<GenericMessageNotification>;
+  public let m_text: String;
+
+  public func Call() -> Void {
+    if IsDefined(this.m_notification) && IsDefined(this.m_notification.m_textInput) {
+      this.m_notification.m_textInput.SetText(this.m_text);
+    }
+  }
+}
+
+// The text box is made by another mod as the pop-up opens, so the name is put in a
+// moment later, whichever of the two gets to this first.
+@if(ModuleExists("EquipmentEx"))
+@wrapMethod(GenericMessageNotification)
+protected cb func OnInitialize() -> Bool {
+  let result: Bool = wrappedMethod();
+  let callback: ref<ORPrefillCallback>;
+  if this.m_data.isInput && NotEquals(this.m_data.orPrefill, "") {
+    callback = new ORPrefillCallback();
+    callback.m_notification = this;
+    callback.m_text = this.m_data.orPrefill;
+    GameInstance.GetDelaySystem(GetGameInstance()).DelayCallback(callback, 0.2, false);
+  }
+  return result;
 }
