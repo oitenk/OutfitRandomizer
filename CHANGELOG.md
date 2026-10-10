@@ -9,5 +9,6 @@
 - Overlap is avoided by name: pieces are placed in a layer (under, top, jacket, bottom, under-legs or full) from the words in their name and item ID, and the randomizer keeps to one piece per layer, with only a jacket over a full piece. The slot is only used when the name says nothing.
 - All text goes through Codeware's localization, so it can be translated.
 - Three switches in the panel, off by default: Allow toggles, Allow cyberware and Allow add-ons. Cyberware covers the KiasuBurger cyberware mods and anything with "cyberware" in its name or ID; add-ons covers weapon and holster add-ons, decals and cosmetics. A slot worn with something that is not allowed is locked automatically, once per piece, and can be unlocked to change it.
+- Any piece tagged OMIT (a custom tag in WEAVE's tag editor) is never picked. Nothing is locked for it, so a worn one can still be replaced.
 - The panel starts below the outfit list so it no longer covers the Sync and Sort buttons or the weather readout, sizes itself to its content, and can be moved in Mod Settings.
 - Bodysuits and leotards are treated as tops, and the torso aux slot (vests, puffers) is checked for overlap by name.

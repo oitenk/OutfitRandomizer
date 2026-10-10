@@ -303,11 +303,31 @@ func OR_IsAddon(name: String, path: String) -> Bool {
   return false;
 }
 
-// Whether a piece is left out of the random pool, and left alone when it is worn.
-// Toggles, cyberware and add-ons are kept out unless the player has allowed them in
-// the panel.
+// Whether a piece carries the OMIT tag. The player adds it in WEAVE's tag editor (as a
+// custom tag), or any other mod can put it on an item; it is not case sensitive.
 @if(ModuleExists("EquipmentEx"))
-func OR_IsExcluded(system: ref<ORSystem>, outfitSystem: ref<OutfitSystem>, itemID: ItemID) -> Bool {
+func OR_HasOmitTag(itemID: ItemID) -> Bool {
+  let record: ref<Item_Record> = TweakDBInterface.GetItemRecord(ItemID.GetTDBID(itemID));
+  let tags: array<CName>;
+  let i: Int32 = 0;
+  if !IsDefined(record) {
+    return false;
+  }
+  tags = record.Tags();
+  while i < ArraySize(tags) {
+    if Equals(StrLower(NameToString(tags[i])), "omit") {
+      return true;
+    }
+    i += 1;
+  }
+  return false;
+}
+
+// Whether a piece is a toggle, cyberware piece or add-on that the player has not
+// allowed in the panel. Such pieces are left out of the pool, and a slot worn with
+// one is locked.
+@if(ModuleExists("EquipmentEx"))
+func OR_IsKindExcluded(system: ref<ORSystem>, outfitSystem: ref<OutfitSystem>, itemID: ItemID) -> Bool {
   let name: String;
   let path: String;
   if system.AllowsToggles() && system.AllowsCyberware() && system.AllowsAddons() {
@@ -320,6 +340,14 @@ func OR_IsExcluded(system: ref<ORSystem>, outfitSystem: ref<OutfitSystem>, itemI
     || (!system.AllowsAddons() && OR_IsAddon(name, path));
 }
 
+// Whether a piece is left out of the random pool: anything tagged OMIT, and the kinds
+// above. A piece tagged OMIT is only ever left out of the pool. Its slot is not locked,
+// so a randomize can still replace it when it is worn.
+@if(ModuleExists("EquipmentEx"))
+func OR_IsExcluded(system: ref<ORSystem>, outfitSystem: ref<OutfitSystem>, itemID: ItemID) -> Bool {
+  return OR_HasOmitTag(itemID) || OR_IsKindExcluded(system, outfitSystem, itemID);
+}
+
 // Whether a slot can be rerolled: not locked, and the pool has a piece for it.
 @if(ModuleExists("EquipmentEx"))
 func OR_IsOpen(system: ref<ORSystem>, poolSlots: script_ref<array<TweakDBID>>, slotID: TweakDBID) -> Bool {
@@ -327,8 +355,7 @@ func OR_IsOpen(system: ref<ORSystem>, poolSlots: script_ref<array<TweakDBID>>, s
 }
 
 // Locks every slot that is worn with a toggle, cyberware piece or add-on while that
-// kind is not allowed, so the randomizer leaves it as it is and the player can see it
-// is kept. A slot is locked once for each piece; if the player unlocks it, it stays
+// kind is not allowed, so it stays as it is and the player can see it is kept. A slot is locked once for each piece; if the player unlocks it, it stays
 // unlocked. Returns how many slots were locked now.
 @if(ModuleExists("EquipmentEx"))
 func OR_AutoLock(game: GameInstance) -> Int32 {
@@ -346,7 +373,7 @@ func OR_AutoLock(game: GameInstance) -> Int32 {
   usedSlots = outfitSystem.GetUsedSlots();
   while i < ArraySize(usedSlots) {
     worn = transactionSystem.GetItemInSlot(player, usedSlots[i]);
-    if IsDefined(worn) && OR_IsExcluded(system, outfitSystem, worn.GetItemID()) {
+    if IsDefined(worn) && OR_IsKindExcluded(system, outfitSystem, worn.GetItemID()) {
       if system.AutoLockOnce(usedSlots[i], ItemID.GetTDBID(worn.GetItemID())) {
         added += 1;
         system.Log("locked " + outfitSystem.GetSlotName(usedSlots[i]) + ": worn with " + outfitSystem.GetItemName(worn.GetItemID()));
