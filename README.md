@@ -107,7 +107,7 @@ With Mod Settings installed, under **Outfit Randomizer**:
 
 ## Notes
 
-- Built and tested on game version 2.3x with Equipment-EX 1.2.9, Codeware 1.20.5 and TweakXL 1.11.4.
+- Built and tested on game version 2.5 with Equipment-EX 1.2.10, Codeware 1.21.1, TweakXL 1.12.0 and ArchiveXL 1.28.0.
 - Street Sense's readout uses its documented score functions, plus a refresh call and a faction-name lookup that are not in its documentation. Both are only used when Street Sense is installed.
 - The Category filter and the All / Equipped tabs of WEAVE's wardrobe are not followed when picking.
 - None of WEAVE, Street Sense or Dynamic Wardrobe is needed. Without WEAVE the randomizer uses the stock Equipment-EX wardrobe: its search box applies, but the slot and tag filters and the tag editor (and so the OMIT tag) do not exist. The district and style preferences still work on the tags items already carry, which vanilla clothing has many of, but modded clothing only has them if something has tagged it. Without Street Sense there is no score readout, and Dynamic Wardrobe only matters to the names suggested when saving.

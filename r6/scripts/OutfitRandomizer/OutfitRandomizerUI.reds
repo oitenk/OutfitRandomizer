@@ -963,7 +963,6 @@ func OR_ChangeBlocked(screen: ref<WardrobeScreenController>) -> Bool {
     return true;
   }
   screen.CancelPreview();
-  screen.CancelOutfitPreview();
   return false;
 }
 
