@@ -221,6 +221,6 @@ func OR_CoverOf(outfitSystem: ref<OutfitSystem>, itemID: ItemID, slotID: TweakDB
   if Equals(fallback, ORCover.None) && slotID != t"OutfitSlots.TorsoAux" {
     return ORCover.None;
   }
-  named = OR_NameCover(outfitSystem.GetItemName(itemID) + " " + TDBID.ToStringDEBUG(ItemID.GetTDBID(itemID)));
+  named = OR_NameCover(outfitSystem.GetItemName(itemID) + " " + OR_ItemPath(itemID));
   return Equals(named, ORCover.None) ? fallback : named;
 }

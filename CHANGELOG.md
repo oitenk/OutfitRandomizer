@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.2
+
+The toggle, cyberware and add-on switches, the overlap check and the search now work without Cyber Engine Tweaks. When item IDs are not available, the piece's appearance name is used instead. With Cyber Engine Tweaks or RedFunctions installed nothing changes.
+
+Checked with WEAVE 1.6.0.
+
 ## 1.0.1
 
 Fixed a script error ("method 'CancelOutfitPreview' not found") when used with the newer WEAVE wardrobe. The mod no longer calls that preview function, which newer versions do not have.

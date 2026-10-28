@@ -923,7 +923,7 @@ func OR_CollectPool(screen: ref<WardrobeScreenController>, out poolItems: array<
       && (ArraySize(screen.m_currentSlotFilters) == 0 || ArrayContains(screen.m_currentSlotFilters, slotID))
       && (Equals(query, "")
         || StrContains(UTF8StrLower(screen.m_outfitSystem.GetItemName(ids[i])), query)
-        || StrContains(UTF8StrLower(TDBID.ToStringDEBUG(ItemID.GetTDBID(ids[i]))), query)) {
+        || StrContains(OR_ItemPath(ids[i]), query)) {
       if ArraySize(screen.m_currentTagFilters) == 0 {
         ArrayPush(poolItems, ids[i]);
         ArrayPush(poolSlots, slotID);

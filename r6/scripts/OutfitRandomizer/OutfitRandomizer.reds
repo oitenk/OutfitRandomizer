@@ -385,6 +385,22 @@ func OR_HasOmitTag(itemID: ItemID) -> Bool {
   return false;
 }
 
+// A piece's item ID, such as "items.kiasu_burger_arm", in lower case. The game only
+// knows record names when CET or RedFunctions is installed. Without them the record's
+// appearance name stands in, which for modded clothing usually matches its ID.
+func OR_ItemPath(itemID: ItemID) -> String {
+  let id: TweakDBID = ItemID.GetTDBID(itemID);
+  let path: String = TDBID.ToStringDEBUG(id);
+  let record: ref<Item_Record>;
+  if StrLen(path) == 0 {
+    record = TweakDBInterface.GetItemRecord(id);
+    if IsDefined(record) {
+      path = NameToString(record.AppearanceName());
+    }
+  }
+  return UTF8StrLower(path);
+}
+
 // Whether a piece is a toggle, cyberware piece or add-on that the player has not
 // allowed in the panel. Such pieces are left out of the pool, and a slot worn with
 // one is locked.
@@ -396,7 +412,7 @@ func OR_IsKindExcluded(system: ref<ORSystem>, outfitSystem: ref<OutfitSystem>, i
     return false;
   }
   name = UTF8StrLower(outfitSystem.GetItemName(itemID));
-  path = UTF8StrLower(TDBID.ToStringDEBUG(ItemID.GetTDBID(itemID)));
+  path = OR_ItemPath(itemID);
   return (!system.AllowsToggles() && OR_IsToggle(name, path))
     || (!system.AllowsCyberware() && OR_IsCyberware(name, path))
     || (!system.AllowsAddons() && OR_IsAddon(name, path));
