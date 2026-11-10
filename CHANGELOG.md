@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.0
+
+NEW! Works with Wardrobe UI Improvements. The die button moves into its header with the other small buttons, and slots are locked with R on its slot list, which shows LOCKED on locked slots.
+
+Checked with Wardrobe UI Improvements 1.0.3.
+
 ## 1.0.2
 
 The toggle, cyberware and add-on switches, the overlap check and the search now work without Cyber Engine Tweaks. When item IDs are not available, the piece's appearance name is used instead. With Cyber Engine Tweaks or RedFunctions installed nothing changes.

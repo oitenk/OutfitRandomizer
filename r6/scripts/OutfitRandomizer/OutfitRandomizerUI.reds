@@ -68,6 +68,8 @@ public class ORPanel {
   private let m_outfitSystem: wref<OutfitSystem>;
   private let m_panel: wref<inkCanvas>;
   private let m_button: wref<inkCanvas>;
+  private let m_buttonRow: wref<inkHorizontalPanel>;
+  private let m_roomMade: Bool;
   private let m_togglesOption: wref<SimpleButton>;
   private let m_cyberwareOption: wref<SimpleButton>;
   private let m_addonsOption: wref<SimpleButton>;
@@ -136,8 +138,71 @@ public class ORPanel {
     return null;
   }
 
+  // The last row of buttons among a widget's children.
+  private func LastRow(parent: ref<inkCompoundWidget>) -> ref<inkHorizontalPanel> {
+    let row: ref<inkHorizontalPanel>;
+    let i: Int32;
+    if !IsDefined(parent) {
+      return null;
+    }
+    i = parent.GetNumChildren() - 1;
+    while i >= 0 && !IsDefined(row) {
+      row = parent.GetWidgetByIndex(i) as inkHorizontalPanel;
+      i -= 1;
+    }
+    return row;
+  }
+
+  // Wardrobe UI Improvements' header across the top of the item panel, if it is installed.
+  private func DrawerHeader() -> wref<inkCompoundWidget> {
+    return this.m_root.GetWidget(n"wrapper/wrapper/vendorPanel/vendorHeader/wardrobeDrawerHeader") as inkCompoundWidget;
+  }
+
+  // The row of small buttons at the top right of the item list. Wardrobe UI Improvements
+  // moves that row into its own header and hides the place it came from, so the row is
+  // looked for in both.
+  private func FindButtonRow() -> ref<inkHorizontalPanel> {
+    let header: ref<inkCompoundWidget> = this.m_root.GetWidget(n"wrapper/wrapper/vendorPanel/vendorHeader/vendoHeaderWrapper") as inkCompoundWidget;
+    let row: ref<inkHorizontalPanel>;
+    if IsDefined(header) && header.IsVisible() {
+      row = this.LastRow(header);
+      if IsDefined(row) {
+        return row;
+      }
+    }
+    return this.LastRow(this.DrawerHeader());
+  }
+
+  // In Wardrobe UI Improvements' header the button row grows to the left, towards the
+  // search box, so the search box moves left by the die button's width. The row may be
+  // moved there before or after the die is added, so this is checked on every tick.
+  private func MakeRoomForButton() -> Void {
+    let header: wref<inkCompoundWidget>;
+    let search: wref<inkWidget>;
+    let margin: inkMargin;
+    let i: Int32 = 0;
+    if this.m_roomMade || !IsDefined(this.m_buttonRow) || !IsDefined(this.m_screen.m_searchInput) {
+      return;
+    }
+    header = this.DrawerHeader();
+    if !IsDefined(header) || this.LastRow(header) != this.m_buttonRow {
+      return;
+    }
+    this.m_roomMade = true;
+    search = this.m_screen.m_searchInput.GetRootWidget();
+    while i < header.GetNumChildren() {
+      if header.GetWidgetByIndex(i) == search {
+        margin = search.GetMargin();
+        margin.right += this.m_button.GetWidth() + this.m_buttonRow.GetChildMargin().left;
+        search.SetMargin(margin);
+        this.m_system.Log("the search box moved left to make room for the randomizer button");
+        return;
+      }
+      i += 1;
+    }
+  }
+
   private func TryAttach() -> Void {
-    let header: ref<inkCompoundWidget>;
     let buttons: ref<inkHorizontalPanel>;
     let i: Int32;
     if !IsDefined(this.m_root) {
@@ -148,15 +213,7 @@ public class ORPanel {
       this.m_screen = this.FindScreen();
     }
     if IsDefined(this.m_screen) {
-      header = this.m_root.GetWidget(n"wrapper/wrapper/vendorPanel/vendorHeader/vendoHeaderWrapper") as inkCompoundWidget;
-    }
-    if IsDefined(header) {
-      // The row of small buttons at the top right of the item list.
-      i = header.GetNumChildren() - 1;
-      while i >= 0 && !IsDefined(buttons) {
-        buttons = header.GetWidgetByIndex(i) as inkHorizontalPanel;
-        i -= 1;
-      }
+      buttons = this.FindButtonRow();
     }
     if !IsDefined(buttons) {
       this.m_attachTries += 1;
@@ -177,6 +234,7 @@ public class ORPanel {
       i += 1;
     }
     this.CreateButton(buttons);
+    this.m_buttonRow = buttons;
     this.CreatePanel();
     this.m_system.Log("wardrobe opened: button added after " + IntToString(this.m_attachTries) + " retries");
     this.Tick();
@@ -430,12 +488,14 @@ public class ORPanel {
   // The outfit slot a slot row stands for, worked out from the name it shows.
   private func HeaderSlot(header: wref<inkCompoundWidget>) -> TweakDBID {
     let row: wref<inkCompoundWidget> = this.HeaderRow(header);
-    let name: String;
-    let i: Int32 = 0;
     if !IsDefined(row) {
-      return TDBID.None();
+      return this.ChipSlot(header);
     }
-    name = (row.GetWidget(n"slot_name") as inkText).GetText();
+    return this.NamedSlot((row.GetWidget(n"slot_name") as inkText).GetText());
+  }
+
+  private func NamedSlot(name: String) -> TweakDBID {
+    let i: Int32 = 0;
     while i < ArraySize(this.m_slotNames) {
       if Equals(this.m_slotNames[i], name) {
         return this.m_slotIDs[i];
@@ -443,6 +503,70 @@ public class ORPanel {
       i += 1;
     }
     return TDBID.None();
+  }
+
+  // Wardrobe UI Improvements hides the slot rows and lists an area's slots as buttons in a
+  // sidebar instead. A button shows the slot's name, and the buttons are reused as the area
+  // changes, so the slot is read from its text each time.
+  private func ChipSlot(chip: wref<inkCompoundWidget>) -> TweakDBID {
+    let text: wref<inkText>;
+    let slotID: TweakDBID;
+    let i: Int32 = 0;
+    if !IsDefined(chip) {
+      return TDBID.None();
+    }
+    while i < chip.GetNumChildren() {
+      text = chip.GetWidgetByIndex(i) as inkText;
+      if IsDefined(text) && NotEquals(text.GetName(), n"orLock") {
+        slotID = this.NamedSlot(text.GetText());
+        if TDBID.IsValid(slotID) {
+          return slotID;
+        }
+      }
+      i += 1;
+    }
+    return TDBID.None();
+  }
+
+  // Adds the LOCKED marker to a sidebar button, in its top right corner left of the NEW
+  // dot, and keeps it in step with the lock.
+  private func MarkChip(chip: wref<inkCompoundWidget>) -> Void {
+    let marker: ref<inkText>;
+    let slotID: TweakDBID;
+    if !IsDefined(chip) {
+      return;
+    }
+    marker = chip.GetWidget(n"orLock") as inkText;
+    if !IsDefined(marker) {
+      marker = new inkText();
+      marker.SetName(n"orLock");
+      marker.SetFontFamily("base\\gameplay\\gui\\fonts\\raj\\raj.inkfontfamily");
+      marker.SetFontSize(20);
+      marker.SetTintColor(new HDRColor(1.0, 0.78, 0.2, 1.0));
+      marker.SetFitToContent(true);
+      marker.SetAnchor(inkEAnchor.TopRight);
+      marker.SetAnchorPoint(Vector2(1.0, 0.0));
+      marker.SetMargin(inkMargin(0.0, 2.0, 22.0, 0.0));
+      marker.SetText(UTF8StrUpper(OR_Text("OutfitRandomizer-Locked")));
+      marker.Reparent(chip);
+      chip.RegisterToCallback(n"OnRelease", this, n"OnHeaderRelease");
+      chip.RegisterToCallback(n"OnEnter", this, n"OnHeaderEnter");
+      chip.RegisterToCallback(n"OnLeave", this, n"OnHeaderLeave");
+    }
+    slotID = this.ChipSlot(chip);
+    marker.SetVisible(TDBID.IsValid(slotID) && this.m_system.IsLocked(slotID));
+  }
+
+  private func MarkChips() -> Void {
+    let sidebar: wref<inkCompoundWidget> = this.m_root.GetWidget(n"wrapper/wrapper/vendorPanel/inventoryContainer/wardrobeSlotSidebar") as inkCompoundWidget;
+    let i: Int32 = 0;
+    if !IsDefined(sidebar) {
+      return;
+    }
+    while i < sidebar.GetNumChildren() {
+      this.MarkChip(sidebar.GetWidgetByIndex(i) as inkCompoundWidget);
+      i += 1;
+    }
   }
 
   // Adds the LOCKED marker to a slot row the first time it is seen and keeps it in
@@ -538,7 +662,9 @@ public class ORPanel {
     }
     this.m_system.ToggleLock(slotID);
     this.m_screen.PlaySound(n"Button", n"OnPress");
-    this.MarkHeader(header);
+    if !this.MarkHeader(header) {
+      this.MarkChip(header);
+    }
     this.ShowLockHint(header);
     this.Refresh(false);
     return true;
@@ -575,6 +701,8 @@ public class ORPanel {
       return;
     }
     this.MarkHeaders(this.m_screen.m_inventoryGridArea as inkCompoundWidget, 0);
+    this.MarkChips();
+    this.MakeRoomForButton();
     this.Refresh(false);
     this.FitPanel();
     this.Delay(ORPanelAction.Tick, 0.3);
@@ -733,6 +861,7 @@ public class ORPanel {
     }
     this.m_system.ClearLocks();
     this.MarkHeaders(this.m_screen.m_inventoryGridArea as inkCompoundWidget, 0);
+    this.MarkChips();
     this.Refresh(false);
     return true;
   }

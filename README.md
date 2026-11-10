@@ -70,6 +70,10 @@ With [WEAVE](https://www.nexusmods.com/cyberpunk2077/mods/28273) installed, the 
 
 With [Street Sense](https://www.nexusmods.com/cyberpunk2077/mods/28989) installed, the panel shows how it reads the outfit you end up with: revealing, intimidation, fear and face scores, and the best faction disguise.
 
+### With Wardrobe UI Improvements
+
+[Wardrobe UI Improvements](https://www.nexusmods.com/cyberpunk2077/mods/36262) gives the wardrobe a new layout. The die button sits in its header, next to the search box, and slots are locked on its slot list left of the item cards: point at a slot and press **R**. Locked slots show **LOCKED** in the corner.
+
 ## Translations
 
 The mod's text is registered with Codeware's localization system, so it can be translated without touching the scripts. The English text and a how-to are in `OutfitRandomizerLocalization.reds`; to add a language, copy the English class, translate it and return it for that language. Translations are welcome. The Mod Settings page is English only.
@@ -80,7 +84,7 @@ The mod's text is registered with Codeware's localization system, so it can be t
 
 Optional:
 - [Mod Settings](https://github.com/jackhumbert/mod_settings) - adds an in-game options page (see below). Without it the defaults apply.
-- [WEAVE](https://www.nexusmods.com/cyberpunk2077/mods/28273) and [Street Sense](https://www.nexusmods.com/cyberpunk2077/mods/28989), as above.
+- [WEAVE](https://www.nexusmods.com/cyberpunk2077/mods/28273), [Street Sense](https://www.nexusmods.com/cyberpunk2077/mods/28989) and [Wardrobe UI Improvements](https://www.nexusmods.com/cyberpunk2077/mods/36262), as above.
 - [Cyber Engine Tweaks](https://www.nexusmods.com/cyberpunk2077/mods/107) or [RedFunctions](https://www.nexusmods.com/cyberpunk2077/mods/32312) - either one lets the mod read item IDs. Without them it goes by item names and appearance names, which catch most modded pieces but can miss a few (see Notes).
 
 Without Equipment-EX the mod loads but does nothing.
@@ -108,7 +112,7 @@ With Mod Settings installed, under **Outfit Randomizer**:
 
 ## Notes
 
-- Built and tested on game version 2.5 with Equipment-EX 1.2.10, Codeware 1.21.1, TweakXL 1.12.0 and ArchiveXL 1.28.0. Checked against WEAVE 1.6.0.
+- Built and tested on game version 2.5 with Equipment-EX 1.2.10, Codeware 1.21.1, TweakXL 1.12.0 and ArchiveXL 1.28.0. Checked against WEAVE 1.6.0 and Wardrobe UI Improvements 1.0.3.
 - The toggle, cyberware and add-on switches, the overlap check and the search also look at each piece's item ID (such as `kiasu_burger_...`). The game only provides item IDs when Cyber Engine Tweaks or RedFunctions is installed. Without either, the mod uses the piece's appearance name instead, which for modded clothing is usually the same or close.
 - Street Sense's readout uses its documented score functions, plus a refresh call and a faction-name lookup that are not in its documentation. Both are only used when Street Sense is installed.
 - The Category filter and the All / Equipped tabs of WEAVE's wardrobe are not followed when picking.
